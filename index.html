@@ -188,7 +188,7 @@ table.pplines { border-collapse: collapse; width: 100%; min-width: 980px; font-s
   padding: 4px 5px 3px; border-bottom: 1px solid var(--rule); white-space: nowrap; font-stretch: 85%;
 }
 .pplines td { padding: 3px 5px; border-bottom: 1px solid var(--rule); vertical-align: top; white-space: nowrap; }
-.pplines td.cmt { font-size: 12px; color: var(--muted); }
+.pplines td.ofin { white-space: normal; min-width: 340px; font-size: 12.5px; }
 .pplines td.n { text-align: right; }
 .pplines tr:last-child td { border-bottom: 0; }
 .pplines .fin { font-weight: 800; font-size: 13.5px; }
@@ -583,7 +583,7 @@ function lineMatch(r) {
   };
 }
 function topFinishers(ri, selfIdx) {
-  const ents = raceEnt[ri].filter(e => /^[123]$/.test(e[1])).slice(0, 3); const r = R[ri];
+  const ents = raceEnt[ri].filter(e => /^\d+$/.test(e[1]) && +e[1] >= 1 && +e[1] <= 7).slice(0, 7); const r = R[ri];
   return ents.map((e, k) => {
     const h = H[e[0]]; const pos = state.horses.indexOf(h[0]);
     let nm = esc(h[1]);
@@ -630,8 +630,8 @@ function ppBlock(id, pos) {
     const r = R[s[0]], m = lineMatch(r);
     const gap = daysBetween(r[0], prev);
     if ((k === 0 && isoToInt(state.date) && gap > 0) || (k > 0 && gap >= 90)) {
-      if (k === 0) body += `<tr class="gap"><td colspan="13">${gap} days since last start</td></tr>`;
-      else body += `<tr class="gap"><td colspan="13">Away ${gap} days</td></tr>`;
+      if (k === 0) body += `<tr class="gap"><td colspan="12">${gap} days since last start</td></tr>`;
+      else body += `<tr class="gap"><td colspan="12">Away ${gap} days</td></tr>`;
     }
     prev = r[0];
     const hl = (on, html) => on ? `<mark>${html}</mark>` : html;
@@ -650,8 +650,7 @@ function ppBlock(id, pos) {
       <td>${esc(riderShort(V[s[3]]))}${amat}</td>
       <td class="n">${s[2] || ''}</td>
       <td class="n">${s[7] ? kpurse(s[7]) : ''}</td>
-      <td>${topFinishers(s[0], hi)}</td>
-      <td class="cmt" title="${esc(V[s[8]])}">${esc(clip(V[s[8]], 70))}</td></tr>`;
+      <td class="ofin">${topFinishers(s[0], hi)}</td></tr>`;
   });
   const more = ss.length - shown.length;
   const lastLine = lastRace ? `Last start <b>${fmtDate(lastRace[0])}</b> ${esc(C[lastRace[1]][1])}${isoToInt(state.date) ? ` · ${daysBetween(lastRace[0], td)} days before today's race` : ''}` : '';
@@ -669,8 +668,8 @@ function ppBlock(id, pos) {
       <div class="recwrap">${recbox}</div>
     </div>
     <div class="lines"><table class="pplines">
-      <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th>Time</th><th title="Winning time against course par, seconds">Par±</th><th>Class</th><th title="Starters">Fld</th><th>Fin</th><th>Jockey</th><th>Wt</th><th title="Earnings">Earn</th><th>Top finishers</th><th>Comment</th></tr></thead>
-      <tbody>${body || `<tr><td colspan="13" class="muted">No ${state.lineFilter === 'kind' ? KIND[state.kind].toLowerCase() + ' ' : ''}starts on record.</td></tr>`}</tbody></table></div>
+      <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th>Time</th><th title="Winning time against course par, seconds">Par±</th><th>Class</th><th title="Starters">Fld</th><th>Fin</th><th>Jockey</th><th>Wt</th><th title="Earnings">Earn</th><th>Order of finish (1st–7th)</th></tr></thead>
+      <tbody>${body || `<tr><td colspan="12" class="muted">No ${state.lineFilter === 'kind' ? KIND[state.kind].toLowerCase() + ' ' : ''}starts on record.</td></tr>`}</tbody></table></div>
     ${flatSection(h, hi)}
     <div class="pp-foot">${lastLine}${more > 0 ? ` · ${more} earlier start${more > 1 ? 's' : ''} not shown` : ''}</div>
   </article>`;
@@ -697,13 +696,12 @@ function flatSection(h, hi) {
       <td>${esc(riderShort(V[l[13]]))}</td>
       <td class="n">${l[12] || ''}</td>
       <td class="n">${l[17] ? kpurse(l[17]) : ''}</td>
-      <td>${esc(V[l[14]])}</td>
-      <td class="cmt" title="${esc(V[l[15]])}">${esc(clip(V[l[15]], 60))}</td></tr>`;
+      <td>${esc(V[l[14]])}</td></tr>`;
   }).join('');
   const more = e[2].length - shown.length;
   return `<div class="flathead"><b>Flat form</b><span>Thoroughbred flat starts from Equibase and BloodHorse charts${el && el.fig ? ` · best Equibase speed figure <b>${el.fig}</b>` : ''}${more > 0 ? ` · ${more} more not shown` : ''}</span></div>
     <div class="lines"><table class="pplines">
-    <thead><tr><th>Date / Trk</th><th>Cond</th><th>Dist</th><th>Class</th><th title="Starters">Fld</th><th title="Finish, superscript = lengths beaten (winner: margin)">Fin</th><th title="Equibase speed figure">Fig</th><th>Odds</th><th>Jockey</th><th>Wt</th><th>Earn</th><th>Trainer</th><th>Comment</th></tr></thead>
+    <thead><tr><th>Date / Trk</th><th>Cond</th><th>Dist</th><th>Class</th><th title="Starters">Fld</th><th title="Finish, superscript = lengths beaten (winner: margin)">Fin</th><th title="Equibase speed figure">Fig</th><th>Odds</th><th>Jockey</th><th>Wt</th><th>Earn</th><th>Trainer</th></tr></thead>
     <tbody>${rows}</tbody></table></div>${years}`;
 }
 function renderPP() {
