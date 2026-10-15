@@ -189,7 +189,7 @@ table.pplines { border-collapse: collapse; width: 100%; min-width: 980px; font-s
 }
 .pplines td { padding: 3px 5px; border-bottom: 1px solid var(--rule); vertical-align: top; white-space: nowrap; }
 .pplines td.ofin { white-space: normal; min-width: 340px; font-size: 12.5px; }
-.pplines td.n { text-align: right; }
+.pplines td.n, .pplines th.n { text-align: right; }
 .pplines tr:last-child td { border-bottom: 0; }
 .pplines .fin { font-weight: 800; font-size: 13.5px; }
 .pplines .fin.win { color: var(--good); }
@@ -272,37 +272,6 @@ footer.colophon {
 
 <main class="desk">
   <aside class="rail" aria-label="Race card">
-    <section class="panel" aria-labelledby="h-cond">
-      <h2 id="h-cond">Today's race</h2>
-      <div class="grid2">
-        <label class="f wide">Course
-          <select id="course"></select>
-        </label>
-        <label class="f">Race date
-          <input type="date" id="rdate">
-        </label>
-        <label class="f">Type
-          <select id="kind">
-            <option value="">Any</option>
-            <option value="T">Timber</option>
-            <option value="H">Hurdle / National Fences</option>
-            <option value="F">Flat</option>
-          </select>
-        </label>
-        <label class="f">Distance
-          <select id="dist"></select>
-        </label>
-        <label class="f">Going
-          <select id="going">
-            <option value="">Unknown</option>
-            <option value="firm">Firm / Hard</option>
-            <option value="good">Good</option>
-            <option value="soft">Yielding / Soft</option>
-          </select>
-        </label>
-      </div>
-    </section>
-
     <section class="panel" aria-labelledby="h-field">
       <h2 id="h-field">The field <span class="count" id="fieldCount"></span></h2>
       <div class="search">
@@ -342,7 +311,6 @@ footer.colophon {
 
   <section class="form" aria-label="Past performances">
     <div id="notice"></div>
-    <div class="racehead" id="racehead"></div>
     <div class="tabs" role="tablist">
       <button role="tab" id="tab-pp" aria-selected="true" aria-controls="view">Past performances</button>
       <button role="tab" id="tab-cmp" aria-selected="false" aria-controls="view">Comparison</button>
@@ -350,7 +318,7 @@ footer.colophon {
       <div class="opts" id="ppOpts">
         <label>Lines <select id="nLines"><option>5</option><option selected>10</option><option>20</option><option value="999">All</option></select></label>
         <label>Flat form <select id="flatOpt"><option value="show">Show</option><option value="hide">Hide</option></select></label>
-        <label>Show <select id="lineFilter"><option value="all">All starts</option><option value="kind">Today's type only</option></select></label>
+        <label>Show <select id="lineFilter"><option value="all">All starts</option><option value="T">Timber only</option><option value="H">Hurdle only</option><option value="F">Flat only</option></select></label>
       </div>
     </div>
     <div id="view" role="tabpanel"><div class="loading"><b>Loading the Form…</b>Reading every steeplechase start in the archive.</div></div>
@@ -482,16 +450,6 @@ const goingOf = r => GOING_GROUP[r[11]] || '';
 
 // ---------------------------------------------------------------- race conditions
 function initControls() {
-  const lastYear = new Array(C.length).fill(0), n = new Array(C.length).fill(0);
-  R.forEach(r => { const y = Math.floor(r[0] / 10000); if (y > lastYear[r[1]]) lastYear[r[1]] = y; n[r[1]]++; });
-  const newest = Math.max(...lastYear);
-  const opt = i => `<option value="${i}">${esc(C[i][1])} (${C[i][0]})</option>`;
-  const ids = C.map((c, i) => i).filter(i => n[i] > 0).sort((a, b) => C[a][1].localeCompare(C[b][1]));
-  const active = ids.filter(i => lastYear[i] >= newest - 2), past = ids.filter(i => lastYear[i] < newest - 2);
-  $('#course').innerHTML = '<option value="-1">Any course</option>' +
-    `<optgroup label="Racing since ${newest - 2}">${active.map(opt).join('')}</optgroup>` +
-    `<optgroup label="Earlier courses">${past.map(opt).join('')}</optgroup>`;
-  $('#dist').innerHTML = DIST_OPTS.map(([f, l]) => `<option value="${f}">${l}</option>`).join('');
   // past fields: the 80 most recent races with 3+ starters
   const recent = [];
   for (let i = R.length - 1; i >= 0 && recent.length < 80; i--) if (raceEnt[i].length >= 3 && R[i][6] !== 'O') recent.push(i);
@@ -501,10 +459,6 @@ function initControls() {
   }).join('');
 }
 function syncControls() {
-  $('#course').value = String(state.course); $('#kind').value = state.kind; $('#going').value = state.going;
-  const opts = DIST_OPTS.map(o => o[0]);
-  const best = opts.reduce((a, b) => Math.abs(b - state.furlongs) < Math.abs(a - state.furlongs) ? b : a, 0);
-  $('#dist').value = String(state.furlongs ? best : 0); $('#rdate').value = state.date;
   $('#nLines').value = String(state.nLines); $('#lineFilter').value = state.lineFilter; $('#flatOpt').value = state.flat;
 }
 function targetDate() { if (isoToInt(state.date)) return isoToInt(state.date); const t = new Date(); return t.getFullYear() * 10000 + (t.getMonth() + 1) * 100 + t.getDate(); }
@@ -518,8 +472,7 @@ function addHorse(id) {
 function loadRaceField(i) {
   const r = R[i];
   state.horses = raceEnt[i].map(e => H[e[0]][0]);
-  state.course = r[1]; state.kind = r[6] === 'O' ? '' : r[6]; state.furlongs = r[8] || 0; state.going = goingOf(r);
-  state.example = null; syncControls(); commit();
+  state.example = null; commit();
 }
 function renderField() {
   const ul = $('#field');
@@ -554,7 +507,7 @@ function search(q) {
 }
 
 // ---------------------------------------------------------------- race header
-function renderRaceHead() {
+function renderRaceHead() { return;
   const c = state.course >= 0 ? C[state.course] : null;
   const dl = (DIST_OPTS.find(o => o[0] === +$('#dist').value) || [0, ''])[1];
   const bits = [];
@@ -623,7 +576,7 @@ function ppBlock(id, pos) {
   const sameName = H.filter(x => x[1] === h[1]).length > 1;
 
   let ss = h[10];
-  if (state.lineFilter === 'kind' && state.kind) ss = ss.filter(s => R[s[0]][6] === state.kind);
+  if (KIND[state.lineFilter]) ss = ss.filter(s => R[s[0]][6] === state.lineFilter);
   const shown = ss.slice(0, state.nLines);
   let body = '', prev = td;
   shown.forEach((s, k) => {
@@ -668,8 +621,8 @@ function ppBlock(id, pos) {
       <div class="recwrap">${recbox}</div>
     </div>
     <div class="lines"><table class="pplines">
-      <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th>Time</th><th title="Winning time against course par, seconds">Par±</th><th>Class</th><th title="Starters">Fld</th><th>Fin</th><th>Jockey</th><th>Wt</th><th title="Earnings">Earn</th><th>Order of finish (1st–7th)</th></tr></thead>
-      <tbody>${body || `<tr><td colspan="12" class="muted">No ${state.lineFilter === 'kind' ? KIND[state.kind].toLowerCase() + ' ' : ''}starts on record.</td></tr>`}</tbody></table></div>
+      <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th>Time</th><th class="n" title="Winning time against course par, seconds">Par±</th><th>Class</th><th class="n" title="Starters">Fld</th><th>Fin</th><th>Jockey</th><th class="n">Wt</th><th class="n" title="Earnings">Earn</th><th>Order of finish (1st–7th)</th></tr></thead>
+      <tbody>${body || `<tr><td colspan="12" class="muted">No ${KIND[state.lineFilter] ? KIND[state.lineFilter].toLowerCase() + ' ' : ''}starts on record.</td></tr>`}</tbody></table></div>
     ${flatSection(h, hi)}
     <div class="pp-foot">${lastLine}${more > 0 ? ` · ${more} earlier start${more > 1 ? 's' : ''} not shown` : ''}</div>
   </article>`;
@@ -692,7 +645,6 @@ function flatSection(h, hi) {
       <td class="n">${l[7] || ''}</td>
       <td><span class="fin${win ? ' win' : ''}">${esc(fin)}${sup}</span></td>
       <td class="n fig">${l[10] || ''}</td>
-      <td class="n">${l[11] ? l[11].toFixed(1) : ''}</td>
       <td>${esc(riderShort(V[l[13]]))}</td>
       <td class="n">${l[12] || ''}</td>
       <td class="n">${l[17] ? kpurse(l[17]) : ''}</td>
@@ -701,12 +653,12 @@ function flatSection(h, hi) {
   const more = e[2].length - shown.length;
   return `<div class="flathead"><b>Flat form</b><span>Thoroughbred flat starts from Equibase and BloodHorse charts${el && el.fig ? ` · best Equibase speed figure <b>${el.fig}</b>` : ''}${more > 0 ? ` · ${more} more not shown` : ''}</span></div>
     <div class="lines"><table class="pplines">
-    <thead><tr><th>Date / Trk</th><th>Cond</th><th>Dist</th><th>Class</th><th title="Starters">Fld</th><th title="Finish, superscript = lengths beaten (winner: margin)">Fin</th><th title="Equibase speed figure">Fig</th><th>Odds</th><th>Jockey</th><th>Wt</th><th>Earn</th><th>Trainer</th></tr></thead>
+    <thead><tr><th>Date / Trk</th><th>Cond</th><th>Dist</th><th>Class</th><th class="n" title="Starters">Fld</th><th title="Finish, superscript = lengths beaten (winner: margin)">Fin</th><th class="n" title="Equibase speed figure">Fig</th><th>Jockey</th><th class="n">Wt</th><th class="n">Earn</th><th>Trainer</th></tr></thead>
     <tbody>${rows}</tbody></table></div>${years}`;
 }
 function renderPP() {
   return state.horses.map((id, i) => ppBlock(id, i)).join('') +
-    `<div class="legend" style="border:0;padding:0"><span><mark>highlighted</mark> matches today's course, type, distance (±1f) or going, or a horse in today's field</span><span><b>T</b> timber · <b>H</b> hurdles/national fences · <b>B</b> brush · <b>f</b> flat · <b>X</b> special course</span><span>Fin superscript: winning margin (lengths)</span><span>Time: superscript = fifths</span><span>Flat form: race-by-race lines cover 2021–23 and Aug 2024 on; yearly Equibase records cover 2000 on. Flat* counts only the flat lines on file.</span></div>`;
+    `<div class="legend" style="border:0;padding:0"><span><mark>highlighted</mark> a horse in this field</span><span><b>T</b> timber · <b>H</b> hurdles/national fences · <b>B</b> brush · <b>f</b> flat · <b>X</b> special course</span><span>Fin superscript: winning margin (lengths)</span><span>Time: superscript = fifths</span><span>Flat form: race-by-race lines cover 2021–23 and Aug 2024 on; yearly Equibase records cover 2000 on. Flat* counts only the flat lines on file.</span></div>`;
 }
 
 // ---------------------------------------------------------------- comparison
@@ -715,16 +667,13 @@ function metrics(id, pos) {
   const life = rec(h);
   const last = ss[0] && R[ss[0][0]];
   const errs = ss.filter(s => ERR.has(s[1])).length, pu = ss.filter(s => s[1] === 'PU').length;
-  const kind = state.kind ? rec(h, r => r[6] === state.kind) : null;
-  const crs = state.course >= 0 ? rec(h, r => r[1] === state.course) : null;
-  const dist = state.kind && state.furlongs ? rec(h, r => r[6] === state.kind && near(r[8], state.furlongs)) : null;
-  const going = state.going ? rec(h, r => goingOf(r) === state.going) : null;
+  const tim = rec(h, r => r[6] === 'T'), hdl = rec(h, r => r[6] === 'H');
   let bestVar = null;
-  for (const s of ss) { const r = R[s[0]]; if (s[1] === '1' && (!state.kind || r[6] === state.kind)) { const v = parVar(r); if (v != null && (bestVar == null || v < bestVar)) bestVar = v; } }
+  for (const s of ss) { const r = R[s[0]]; if (s[1] === '1') { const v = parVar(r); if (v != null && (bestVar == null || v < bestVar)) bestVar = v; } }
   const ty = Math.floor(td / 10000);
   const yr = rec(h, r => Math.floor(r[0] / 10000) === ty);
   return {
-    pos, id, h, life, last, errs, pu, kind, crs, dist, going, bestVar, yr,
+    pos, id, h, life, last, errs, pu, tim, hdl, bestVar, yr,
     days: last ? daysBetween(last[0], td) : null,
     form: ss.slice(0, 5).map(s => s[1] || '—').join('-'),
     winPct: life.st ? life.w / life.st : 0, itmPct: life.st ? (life.w + life.p + life.s) / life.st : 0,
@@ -745,10 +694,8 @@ const COLS = [
   { k: 'itm', t: 'ITM%', v: m => m.itmPct, show: m => pct(m.itmPct), best: 'max' },
   { k: 'earn', t: 'Earnings', v: m => m.life.e, show: m => money(m.life.e) || '$0', best: 'max' },
   { k: 'yr', t: 'This year', v: m => recScore(m.yr), show: m => recCell(m.yr), best: 'max' },
-  { k: 'kind', t: () => state.kind ? KIND[state.kind] : 'Type', v: m => recScore(m.kind), show: m => recCell(m.kind), best: 'max' },
-  { k: 'crs', t: () => state.course >= 0 ? 'At ' + C[state.course][0] : 'Course', v: m => recScore(m.crs), show: m => recCell(m.crs), best: 'max' },
-  { k: 'dist', t: 'Distance', v: m => recScore(m.dist), show: m => recCell(m.dist), best: 'max' },
-  { k: 'going', t: 'Going', v: m => recScore(m.going), show: m => recCell(m.going), best: 'max' },
+  { k: 'tim', t: 'Timber', v: m => recScore(m.tim), show: m => recCell(m.tim), best: 'max' },
+  { k: 'hdl', t: 'Hurdle', v: m => recScore(m.hdl), show: m => recCell(m.hdl), best: 'max' },
   { k: 'flat', t: 'Flat', v: m => recScore(m.flat), show: m => m.flat.st ? recCell(m.flat) : '—', best: 'max' },
   { k: 'fig', t: 'Best fig', v: m => m.fig || -1, show: m => m.fig ? `${m.fig}<span class="s">Equibase</span>` : '—', best: 'max' },
   { k: 'days', t: 'Days off', v: m => m.days ?? 1e9, show: m => m.days == null ? '—' : `${m.days}<span class="s">${fmtDate(m.last[0])} ${esc(C[m.last[1]][0])}</span>` },
@@ -778,7 +725,7 @@ function renderCmp() {
     return `<td class="${c.l ? 'l' : ''}${best ? ' best' : ''}">${c.show ? c.show(m) : esc(v)}</td>`;
   }).join('') + '</tr>').join('');
   return `<div class="sheet"><table class="cmp"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>
-    <div class="legend"><span><mark>highlighted</mark> best in the field</span><span>Records read starts: wins-seconds-thirds</span><span>Distance = today's type within a furlong</span><span>Finished = completed the course (not fell, unseated, refused, ran out or pulled up)</span><span>Click a column to sort</span></div></div>`;
+    <div class="legend"><span><mark>highlighted</mark> best in the field</span><span>Records read starts: wins-seconds-thirds</span><span>Finished = completed the course (not fell, unseated, refused, ran out or pulled up)</span><span>Click a column to sort</span></div></div>`;
 }
 
 // ---------------------------------------------------------------- head to head
@@ -824,7 +771,7 @@ function render() {
   for (const t of ['pp', 'cmp', 'h2h']) $('#tab-' + t).setAttribute('aria-selected', String(state.tab === t));
   $('#notice').innerHTML = state.example ? `<div class="notice">Example card: the field from <b>${esc(state.example)}</b>. Clear the field and add the entries for your race, or load another past field.</div>` : '';
   const v = $('#view');
-  if (!state.horses.length) { v.innerHTML = '<div class="empty-form">Add the horses entered in the race to see their past performances side by side.</div>'; return; }
+  if (!state.horses.length) { v.innerHTML = '<div class="empty-form"><b>Build the field.</b><br>Type a horse\'s name in <b>The field</b> box to add each entry for the race, or load the field from a past race. Their past performances appear here side by side, with a comparison sheet and head-to-head record.</div>'; return; }
   v.innerHTML = state.tab === 'pp' ? renderPP() : state.tab === 'cmp' ? renderCmp() : renderH2H();
 }
 function commit() { store.set('spp.current', state); render(); }
@@ -870,11 +817,6 @@ function wire() {
   });
   $('#clearField').addEventListener('click', () => { state.horses = []; state.example = null; commit(); $('#q').focus(); });
   $('#pastRace').addEventListener('change', e => { if (e.target.value !== '') loadRaceField(+e.target.value); e.target.value = ''; });
-  $('#course').addEventListener('change', e => { state.course = +e.target.value; commit(); });
-  $('#kind').addEventListener('change', e => { state.kind = e.target.value; commit(); });
-  $('#dist').addEventListener('change', e => { state.furlongs = +e.target.value; commit(); });
-  $('#going').addEventListener('change', e => { state.going = e.target.value; commit(); });
-  $('#rdate').addEventListener('change', e => { state.date = e.target.value; commit(); });
   $('#nLines').addEventListener('change', e => { state.nLines = +e.target.value; commit(); });
   $('#lineFilter').addEventListener('change', e => { state.lineFilter = e.target.value; commit(); });
   $('#flatOpt').addEventListener('change', e => { state.flat = e.target.value; commit(); });
@@ -884,7 +826,7 @@ function wire() {
   $('#view').addEventListener('keydown', e => { const th = e.target.closest('th[data-sort]'); if (th && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); sortBy(th); } });
 
   $('#saveCard').addEventListener('click', () => {
-    const name = $('#cardName').value.trim() || ((state.course >= 0 ? C[state.course][1] : 'Race card') + (state.date ? ' ' + fmtDate(isoToInt(state.date)) : ''));
+    const name = $('#cardName').value.trim() || ('Race card ' + new Date().toLocaleDateString('en-US'));
     if (!state.horses.length) { toast('Add some horses before saving'); return; }
     const cards = store.get('spp.cards', []).filter(c => c.name !== name);
     cards.unshift({ name, card: cardOf() }); store.set('spp.cards', cards.slice(0, 50)); renderSaved();
@@ -927,8 +869,8 @@ function fromHash() {
   const fromLink = fromHash(), saved = store.get('spp.current', null);
   if (saved) { state.tab = saved.tab || 'pp'; state.nLines = saved.nLines || 10; state.lineFilter = saved.lineFilter || 'all'; state.flat = saved.flat || 'show'; }
   if (fromLink) applyCard(fromLink);
-  else if (saved && saved.horses && saved.horses.length && !saved.example) applyCard(saved);
-  else {
+  else { syncControls(); render(); }
+  if (false) {
     // example: the most recent sanctioned timber race with 5+ starters
     let ex = -1;
     for (let i = R.length - 1; i >= 0; i--) if (R[i][6] === 'T' && R[i][17] && raceEnt[i].length >= 5) { ex = i; break; }
