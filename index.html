@@ -205,6 +205,12 @@ table.pplines { border-collapse: collapse; width: 100%; min-width: 980px; font-s
   border-radius: 1px; padding: 0 2px; margin-left: 3px; vertical-align: 1px; line-height: 12px; font-stretch: 90%;
 }
 .ptp { font-size: 9px; font-weight: 700; color: var(--muted); border: 1px solid var(--rule); padding: 0 2px; margin-left: 3px; vertical-align: 1px; }
+.flathead { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; padding: 7px 10px 4px; border-top: 2px solid var(--ink); background: var(--tint); }
+.flathead b { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+.flathead span { font-size: 12px; color: var(--muted); font-stretch: 85%; }
+.eqyears { padding: 5px 10px 7px; font-size: 12px; color: var(--muted); font-stretch: 80%; border-top: 1px solid var(--rule); }
+.eqyears b { color: var(--ink); }
+.fig { font-weight: 800; }
 .pp-foot { padding: 6px 10px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--rule); font-stretch: 85%; }
 .pp-foot b { color: var(--ink); }
 
@@ -343,6 +349,7 @@ footer.colophon {
       <button role="tab" id="tab-h2h" aria-selected="false" aria-controls="view">Head to head</button>
       <div class="opts" id="ppOpts">
         <label>Lines <select id="nLines"><option>5</option><option selected>10</option><option>20</option><option value="999">All</option></select></label>
+        <label>Flat form <select id="flatOpt"><option value="show">Show</option><option value="hide">Hide</option></select></label>
         <label>Show <select id="lineFilter"><option value="all">All starts</option><option value="kind">Today's type only</option></select></label>
       </div>
     </div>
@@ -351,7 +358,7 @@ footer.colophon {
 </main>
 
 <footer class="colophon">
-  Data: CEO and NSA steeplechase results, 1966 to date, cleaned and maintained in the CEO database. Winning margin is the winner's margin over the second horse; beaten lengths for other finishers are not recorded in the charts. <b>Par±</b> compares a race's winning time with the median winning time for the same course, type and distance (three or more races needed); minus is faster.
+  Data: CEO and NSA steeplechase results, 1966 to date, cleaned and maintained in the CEO database. Winning margin is the winner's margin over the second horse; beaten lengths for other finishers are not recorded in the charts. <b>Par±</b> compares a race's winning time with the average winning time for the same course, type and distance (three or more races needed); minus is faster.
 </footer>
 
 <script>
@@ -372,9 +379,9 @@ let D = null;               // payload
 let R, V, H, C;             // races, vocab, horses, courses
 const byId = new Map();     // horse id -> index
 let raceEnt;                // race -> [[horseIdx, fin, wt], ...] sorted by finish
-const par = new Map();      // course|surface|furlongs -> median seconds
+const par = new Map();      // course|surface|furlongs -> average winning seconds
 let lowerNames;
-const state = { horses: [], course: -1, kind: '', furlongs: 0, going: '', date: '', tab: 'pp', nLines: 10, lineFilter: 'all', sort: null, example: null };
+const state = { horses: [], course: -1, kind: '', furlongs: 0, going: '', date: '', tab: 'pp', nLines: 10, lineFilter: 'all', flat: 'show', sort: null, example: null };
 
 // ---------------------------------------------------------------- storage (per-viewer convenience only)
 const store = {
@@ -439,7 +446,7 @@ async function load() {
   lowerNames = H.map(h => h[1].toLowerCase());
   const buckets = new Map();
   R.forEach(r => { if (r[13] > 0 && r[8] > 0) { const k = parKey(r[1], r[7], r[8]); (buckets.get(k) || buckets.set(k, []).get(k)).push(r[13]); } });
-  for (const [k, a] of buckets) if (a.length >= 3) { a.sort((x, y) => x - y); par.set(k, a[Math.floor(a.length / 2)]); }
+  for (const [k, a] of buckets) if (a.length >= 3) par.set(k, a.reduce((x, y) => x + y, 0) / a.length);
 }
 const parKey = (c, s, f) => c + '|' + s + '|' + Math.round(f * 2) / 2;
 function parVar(r) { const p = par.get(parKey(r[1], r[7], r[8])); return p && r[13] ? r[13] - p : null; }
@@ -453,6 +460,20 @@ function rec(h, pred) {
     o.st++; o.e += s[7];
     if (s[1] === '1') o.w++; else if (s[1] === '2') o.p++; else if (s[1] === '3') o.s++;
   }
+  return o;
+}
+function eq(h) { return h[11] || null; }
+function flatRec(h) {
+  const e = eq(h), o = { st: 0, w: 0, p: 0, s: 0, e: 0 };
+  if (!e) return o;
+  for (const l of e[2]) { o.st++; o.e += l[17]; if (l[8] === '1') o.w++; else if (l[8] === '2') o.p++; else if (l[8] === '3') o.s++; }
+  return o;
+}
+function eqLife(h) {
+  const e = eq(h), o = { st: 0, w: 0, p: 0, s: 0, e: 0, fig: 0 };
+  if (!e) return null;
+  for (const y of e[1]) { o.st += y[1]; o.w += y[2]; o.p += y[3]; o.s += y[4]; o.e += y[5]; if (y[6] > o.fig) o.fig = y[6]; }
+  for (const l of e[2]) if (l[10] > o.fig) o.fig = l[10];
   return o;
 }
 const recTxt = o => `${o.st} ${o.w}-${o.p}-${o.s}`;
@@ -484,7 +505,7 @@ function syncControls() {
   const opts = DIST_OPTS.map(o => o[0]);
   const best = opts.reduce((a, b) => Math.abs(b - state.furlongs) < Math.abs(a - state.furlongs) ? b : a, 0);
   $('#dist').value = String(state.furlongs ? best : 0); $('#rdate').value = state.date;
-  $('#nLines').value = String(state.nLines); $('#lineFilter').value = state.lineFilter;
+  $('#nLines').value = String(state.nLines); $('#lineFilter').value = state.lineFilter; $('#flatOpt').value = state.flat;
 }
 function targetDate() { if (isoToInt(state.date)) return isoToInt(state.date); const t = new Date(); return t.getFullYear() * 10000 + (t.getMonth() + 1) * 100 + t.getDate(); }
 
@@ -544,7 +565,7 @@ function renderRaceHead() {
   let parTxt = '';
   if (k) {
     const n = R.filter(r => r[1] === state.course && r[13] > 0 && parKey(r[1], r[7], r[8]) === k).length;
-    parTxt = p ? `Course par <b>${fifths(p)}</b><br>median of ${n} winning times` : 'No course par yet<br>(fewer than 3 timed races)';
+    parTxt = p ? `Course par <b>${fifths(p)}</b><br>average of ${n} winning times` : 'No course par yet<br>(fewer than 3 timed races)';
   }
   const d = isoToInt(state.date);
   $('#racehead').innerHTML = `<div><div class="t">${c ? esc(c[1]) : 'Any course'}${d ? ' · ' + fmtDate(d) : ''}</div>
@@ -591,6 +612,8 @@ function ppBlock(id, pos) {
   if (state.course >= 0) rows.push([C[state.course][0], rec(h, r => r[1] === state.course), true, true]);
   for (const k of ['T', 'H', 'F']) rows.push([KIND[k], rec(h, r => r[6] === k), state.kind === k, k === 'T']);
   if (state.kind && state.furlongs) rows.push(['Dist', rec(h, r => r[6] === state.kind && near(r[8], state.furlongs)), true, true]);
+  const fr = flatRec(h); if (fr.st) rows.push(['Flat*', fr, false, true]);
+  const el = eqLife(h); if (el && el.st) rows.push(['Equibase', el, false, !fr.st]);
   for (const g of ['firm', 'good', 'soft']) rows.push([g === 'soft' ? 'Yld/Sft' : g[0].toUpperCase() + g.slice(1), rec(h, r => goingOf(r) === g), state.going === g, g === 'firm' && !(state.kind && state.furlongs)]);
   const recbox = `<table class="recbox" aria-label="Record">${rows.map(([l, o, on, sep]) =>
     `<tr class="${on ? 'on' : ''}${sep ? ' sep' : ''}"><td>${esc(l)}</td><td>${o.st}</td><td>${o.w}</td><td>${o.p}</td><td>${o.s}</td><td>${money(o.e) || '$0'}</td></tr>`).join('')}</table>`;
@@ -648,12 +671,44 @@ function ppBlock(id, pos) {
     <div class="lines"><table class="pplines">
       <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th>Time</th><th title="Winning time against course par, seconds">Par±</th><th>Class</th><th title="Starters">Fld</th><th>Fin</th><th>Jockey</th><th>Wt</th><th title="Earnings">Earn</th><th>Top finishers</th><th>Comment</th></tr></thead>
       <tbody>${body || `<tr><td colspan="13" class="muted">No ${state.lineFilter === 'kind' ? KIND[state.kind].toLowerCase() + ' ' : ''}starts on record.</td></tr>`}</tbody></table></div>
+    ${flatSection(h, hi)}
     <div class="pp-foot">${lastLine}${more > 0 ? ` · ${more} earlier start${more > 1 ? 's' : ''} not shown` : ''}</div>
   </article>`;
 }
+function flatSection(h, hi) {
+  const e = eq(h); if (!e || state.flat === 'hide') return '';
+  const el = eqLife(h);
+  const years = e[1].length ? `<div class="eqyears"><b>Equibase by year</b> (all North American starts, NSA jump races included): ` +
+    e[1].map(y => `${y[0]} <b>${y[1]}</b>: ${y[2]}-${y[3]}-${y[4]} ${money(y[5]) || '$0'}${y[6] ? ` fig ${y[6]}` : ''}`).join(' · ') + '</div>' : '';
+  if (!e[2].length) return `<div class="flathead"><b>Flat form</b><span>No race-by-race flat lines on file${el && el.fig ? ` · best Equibase speed figure <b>${el.fig}</b>` : ''}</span></div>` + years;
+  const shown = e[2].slice(0, state.nLines);
+  const rows = shown.map(l => {
+    const fin = l[8] || '—', win = fin === '1';
+    const sup = l[9] ? `<sup>${esc(l[9])}</sup>` : '';
+    return `<tr>
+      <td class="trk">${fmtDate(l[0])}<sup>${l[2] || ''}</sup>${esc(l[1])}</td>
+      <td>${esc(l[6] || '—')}</td>
+      <td>${esc(V[l[4]]) || '?'}<span class="sf" title="${{t: 'Turf', d: 'Dirt', aw: 'All-weather'}[l[5]] || ''}">${esc(l[5] || '?')}</span></td>
+      <td>${esc(V[l[3]])}${l[16] && !/\dk$/.test(V[l[3]]) ? ' ' + kpurse(l[16]) : ''}</td>
+      <td class="n">${l[7] || ''}</td>
+      <td><span class="fin${win ? ' win' : ''}">${esc(fin)}${sup}</span></td>
+      <td class="n fig">${l[10] || ''}</td>
+      <td class="n">${l[11] ? l[11].toFixed(1) : ''}</td>
+      <td>${esc(riderShort(V[l[13]]))}</td>
+      <td class="n">${l[12] || ''}</td>
+      <td class="n">${l[17] ? kpurse(l[17]) : ''}</td>
+      <td>${esc(V[l[14]])}</td>
+      <td class="cmt" title="${esc(V[l[15]])}">${esc(clip(V[l[15]], 60))}</td></tr>`;
+  }).join('');
+  const more = e[2].length - shown.length;
+  return `<div class="flathead"><b>Flat form</b><span>Thoroughbred flat starts from Equibase and BloodHorse charts${el && el.fig ? ` · best Equibase speed figure <b>${el.fig}</b>` : ''}${more > 0 ? ` · ${more} more not shown` : ''}</span></div>
+    <div class="lines"><table class="pplines">
+    <thead><tr><th>Date / Trk</th><th>Cond</th><th>Dist</th><th>Class</th><th title="Starters">Fld</th><th title="Finish, superscript = lengths beaten (winner: margin)">Fin</th><th title="Equibase speed figure">Fig</th><th>Odds</th><th>Jockey</th><th>Wt</th><th>Earn</th><th>Trainer</th><th>Comment</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>${years}`;
+}
 function renderPP() {
   return state.horses.map((id, i) => ppBlock(id, i)).join('') +
-    `<div class="legend" style="border:0;padding:0"><span><mark>highlighted</mark> matches today's course, type, distance (±1f) or going, or a horse in today's field</span><span><b>T</b> timber · <b>H</b> hurdles/national fences · <b>B</b> brush · <b>f</b> flat · <b>X</b> special course</span><span>Fin superscript: winning margin (lengths)</span><span>Time: superscript = fifths</span></div>`;
+    `<div class="legend" style="border:0;padding:0"><span><mark>highlighted</mark> matches today's course, type, distance (±1f) or going, or a horse in today's field</span><span><b>T</b> timber · <b>H</b> hurdles/national fences · <b>B</b> brush · <b>f</b> flat · <b>X</b> special course</span><span>Fin superscript: winning margin (lengths)</span><span>Time: superscript = fifths</span><span>Flat form: race-by-race lines cover 2021–23 and Aug 2024 on; yearly Equibase records cover 2000 on. Flat* counts only the flat lines on file.</span></div>`;
 }
 
 // ---------------------------------------------------------------- comparison
@@ -676,6 +731,7 @@ function metrics(id, pos) {
     form: ss.slice(0, 5).map(s => s[1] || '—').join('-'),
     winPct: life.st ? life.w / life.st : 0, itmPct: life.st ? (life.w + life.p + life.s) / life.st : 0,
     errPct: ss.length ? errs / ss.length : 0, compPct: ss.length ? (ss.length - errs - pu) / ss.length : 0,
+    flat: flatRec(h), fig: (eqLife(h) || {}).fig || 0,
     rider: ss[0] ? V[ss[0][3]] : '', trainer: ss[0] ? V[ss[0][5]] : '',
   };
 }
@@ -695,6 +751,8 @@ const COLS = [
   { k: 'crs', t: () => state.course >= 0 ? 'At ' + C[state.course][0] : 'Course', v: m => recScore(m.crs), show: m => recCell(m.crs), best: 'max' },
   { k: 'dist', t: 'Distance', v: m => recScore(m.dist), show: m => recCell(m.dist), best: 'max' },
   { k: 'going', t: 'Going', v: m => recScore(m.going), show: m => recCell(m.going), best: 'max' },
+  { k: 'flat', t: 'Flat', v: m => recScore(m.flat), show: m => m.flat.st ? recCell(m.flat) : '—', best: 'max' },
+  { k: 'fig', t: 'Best fig', v: m => m.fig || -1, show: m => m.fig ? `${m.fig}<span class="s">Equibase</span>` : '—', best: 'max' },
   { k: 'days', t: 'Days off', v: m => m.days ?? 1e9, show: m => m.days == null ? '—' : `${m.days}<span class="s">${fmtDate(m.last[0])} ${esc(C[m.last[1]][0])}</span>` },
   { k: 'form', t: 'Last 5', l: true, v: m => m.form, show: m => esc(m.form) },
   { k: 'comp', t: 'Finished', v: m => m.compPct, show: m => `${pct(m.compPct)}<span class="s">${m.errs} fell/unseated · ${m.pu} PU</span>`, best: 'max' },
@@ -821,6 +879,7 @@ function wire() {
   $('#rdate').addEventListener('change', e => { state.date = e.target.value; commit(); });
   $('#nLines').addEventListener('change', e => { state.nLines = +e.target.value; commit(); });
   $('#lineFilter').addEventListener('change', e => { state.lineFilter = e.target.value; commit(); });
+  $('#flatOpt').addEventListener('change', e => { state.flat = e.target.value; commit(); });
   for (const t of ['pp', 'cmp', 'h2h']) $('#tab-' + t).addEventListener('click', () => { state.tab = t; commit(); });
   const sortBy = th => { const k = th.dataset.sort; state.sort = state.sort && state.sort.k === k ? (state.sort.dir > 0 ? { k, dir: -1 } : null) : { k, dir: 1 }; render(); };
   $('#view').addEventListener('click', e => { const th = e.target.closest('th[data-sort]'); if (th) sortBy(th); });
@@ -868,7 +927,7 @@ function fromHash() {
   $('#meta').innerHTML = `<b>${H.length.toLocaleString()}</b> horses · <b>${nStarts.toLocaleString()}</b> starts · ${Math.floor(R[0][0] / 10000)}–${Math.floor(R[R.length - 1][0] / 10000)} · results through ${fmtDate(R[R.length - 1][0])} · data built ${esc(D.built)}`;
   initControls(); wire(); renderSaved();
   const fromLink = fromHash(), saved = store.get('spp.current', null);
-  if (saved) { state.tab = saved.tab || 'pp'; state.nLines = saved.nLines || 10; state.lineFilter = saved.lineFilter || 'all'; }
+  if (saved) { state.tab = saved.tab || 'pp'; state.nLines = saved.nLines || 10; state.lineFilter = saved.lineFilter || 'all'; state.flat = saved.flat || 'show'; }
   if (fromLink) applyCard(fromLink);
   else if (saved && saved.horses && saved.horses.length && !saved.example) applyCard(saved);
   else {
