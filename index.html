@@ -132,6 +132,13 @@ select, input[type="text"], input[type="date"], input[type="search"] {
 .field .sub { font-size: 11.5px; color: var(--muted); font-stretch: 85%; }
 .field .ops { display: flex; gap: 2px; }
 .field-empty { color: var(--muted); font-size: 12.5px; padding: 6px 0; }
+.field li.noform .nm { color: var(--muted); }
+.status { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 1px 6px; border: 1px solid currentColor; border-radius: 2px; }
+.status.final { color: var(--good); }
+.status.provisional { color: var(--muted); }
+.racehead .cond { font-size: 12px; color: var(--muted); margin-top: 3px; max-width: 80ch; }
+.today { font-weight: 600; }
+.today b { font-weight: 800; }
 
 .pgm {
   display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 3px;
@@ -274,6 +281,9 @@ footer.colophon {
   <aside class="rail" aria-label="Race card">
     <section class="panel" aria-labelledby="h-field">
       <h2 id="h-field">The field <span class="count" id="fieldCount"></span></h2>
+      <label class="f">Race card (NSA and CEO entries)
+        <select id="entryRace"></select>
+      </label>
       <div class="search">
         <input type="search" id="q" placeholder="Add a horse: type a name" autocomplete="off" aria-label="Search horses" aria-controls="results">
         <div class="results" id="results" hidden></div>
@@ -349,7 +359,7 @@ const byId = new Map();     // horse id -> index
 let raceEnt;                // race -> [[horseIdx, fin, wt], ...] sorted by finish
 const par = new Map();      // course|surface|furlongs -> average winning seconds
 let lowerNames;
-const state = { horses: [], course: -1, kind: '', furlongs: 0, going: '', date: '', tab: 'pp', nLines: 10, lineFilter: 'all', flat: 'show', sort: null, example: null };
+const state = { horses: [], course: -1, kind: '', furlongs: 0, going: '', date: '', tab: 'pp', nLines: 10, lineFilter: 'all', flat: 'show', sort: null, example: null, entry: null };
 
 // ---------------------------------------------------------------- storage (per-viewer convenience only)
 const store = {
@@ -383,10 +393,23 @@ function years(h) {
   const a = Math.floor(R[ss[ss.length - 1][0]][0] / 10000), b = Math.floor(R[ss[0][0]][0] / 10000);
   return a === b ? String(a) : a + '–' + String(b);
 }
-function pgm(i, sm) {
-  const n = i + 1, k = ((n - 1) % 16) + 1;
-  return `<span class="pgm${sm ? ' sm' : ''}" style="background:var(--sc${k});color:var(--sc${k}i)">${n}</span>`;
+function entryCtx() {
+  if (!state.entry || !D.cards) return null;
+  const c = D.cards.find(x => x.id === state.entry.card); const r = c && c.races[state.entry.race];
+  return r ? { c, r } : null;
 }
+function entryOf(id) { const x = entryCtx(); return x ? x.r.entries.find(e => e.hid === id) || null : null; }
+function progNo(i) {
+  const e = entryOf(state.horses[i]); if (e) return e.pp;
+  const x = entryCtx(); if (!x) return String(i + 1);
+  const used = Math.max(0, ...x.r.entries.map(e => parseInt(e.pp) || 0));
+  return String(used + 1 + state.horses.slice(0, i).filter(id => !entryOf(id)).length);
+}
+function pgmBadge(label, sm) {
+  const k = (((parseInt(label) || 1) - 1) % 16) + 1;
+  return `<span class="pgm${sm ? ' sm' : ''}" style="background:var(--sc${k});color:var(--sc${k}i)">${esc(label)}</span>`;
+}
+function pgm(i, sm) { return pgmBadge(progNo(i), sm); }
 function fifths(sec) {
   if (!sec) return '';
   const m = Math.floor(sec / 60), s = sec - m * 60, w = Math.floor(s), f = Math.round((s - w) * 5);
@@ -470,19 +493,41 @@ function addHorse(id) {
   state.horses.push(id); state.example = null; commit();
 }
 function loadRaceField(i) {
-  const r = R[i];
   state.horses = raceEnt[i].map(e => H[e[0]][0]);
+  state.entry = null; state.example = null; commit();
+}
+function loadEntryRace(cardId, ri) {
+  const c = (D.cards || []).find(x => x.id === cardId); if (!c) return;
+  const r = c.races[ri];
+  state.entry = { card: cardId, race: ri };
+  state.horses = r.entries.filter(e => e.hid != null && byId.has(e.hid)).map(e => e.hid);
   state.example = null; commit();
+}
+function initEntries() {
+  const sel = $('#entryRace'), cards = D.cards || [];
+  if (!cards.length) { sel.innerHTML = '<option value="">No entries posted yet</option>'; sel.disabled = true; return; }
+  const day = d => { const t = toDate(d); return t.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }) + ' ' + fmtDate(d); };
+  sel.innerHTML = '<option value="">Choose a race…</option>' + cards.map(c =>
+    `<optgroup label="${esc(c.meet)} · ${day(c.date)} · ${c.status === 'final' ? 'final' : 'provisional'} entries (${esc(c.source)})">` +
+    c.races.map((r, i) => `<option value="${esc(c.id)}|${i}">R${r.no}${r.div ? ' div ' + r.div : ''}${r.post ? ' ' + esc(r.post) : ''} · ${esc(r.name || r.type)}${r.surface ? ' · ' + esc(r.surface) : ''} (${r.entries.length})</option>`).join('') +
+    '</optgroup>').join('');
 }
 function renderField() {
   const ul = $('#field');
   $('#fieldCount').textContent = state.horses.length ? state.horses.length + (state.horses.length === 1 ? ' horse' : ' horses') : '';
-  if (!state.horses.length) { ul.innerHTML = '<li class="field-empty">No horses yet. Search above to add the entries for the race.</li>'; return; }
-  ul.innerHTML = state.horses.map((id, i) => {
+  const x = entryCtx();
+  const extra = x ? x.r.entries.filter(e => e.hid == null || !byId.has(e.hid)) : [];
+  const extraHtml = extra.map(e => `<li class="noform"><span>${pgmBadge(e.pp)}</span><div><div class="nm">${esc(e.name)}</div><div class="sub">No starts in the archive${e.jockey ? ' · ' + esc(e.jockey) : ''}${e.trainer ? ' · ' + esc(e.trainer) : ''}</div></div><div></div></li>`).join('');
+  if (!state.horses.length && !extra.length) { ul.innerHTML = '<li class="field-empty">No horses yet. Choose a race card above, or search to add the entries for the race.</li>'; return; }
+  const items = state.horses.map((id, i) => {
     const h = H[byId.get(id)];
     return `<li><span>${pgm(i)}</span><div><div class="nm">${esc(h[1])}</div><div class="sub">${years(h)} · ${h[10].length} starts${h[6] ? ' · by ' + esc(h[6]) : ''}</div></div>
       <div class="ops"><button class="btn small ghost" data-up="${i}" aria-label="Move ${esc(h[1])} up" ${i ? '' : 'disabled'}>↑</button><button class="btn small ghost" data-rm="${i}" aria-label="Remove ${esc(h[1])}">✕</button></div></li>`;
-  }).join('');
+  });
+  // with a race card loaded, horses with no starts sit in program order among the rest
+  const order = items.map((html, i) => [parseInt(progNo(i)) || 99, html]);
+  extra.forEach((e, k) => order.push([parseInt(e.pp) || 99, extraHtml.split('</li>')[k] + '</li>']));
+  ul.innerHTML = order.sort((a, b) => a[0] - b[0]).map(o => o[1]).join('');
 }
 
 // ---------------------------------------------------------------- search
@@ -612,6 +657,7 @@ function ppBlock(id, pos) {
       <div>${pgm(pos)}</div>
       <div><div class="pp-name">${esc(h[1])}${sameName ? `<small>${years(h)}</small>` : ''}</div>
         <div class="pp-id">
+          ${todayLine(id)}
           <div>${esc(ident)}${h[6] ? ` · <span class="k">Sire:</span> ${esc(h[6])}` : ''}</div>
           ${h[7] ? `<div><span class="k">Dam:</span> ${esc(h[7])}${h[8] ? ` (${esc(h[8])})` : ''}</div>` : ''}
           ${h[9] ? `<div><span class="k">Br:</span> ${esc(h[9])}</div>` : ''}
@@ -655,6 +701,17 @@ function flatSection(h, hi) {
     <div class="lines"><table class="pplines">
     <thead><tr><th>Date / Trk</th><th>Cond</th><th>Dist</th><th>Class</th><th class="n" title="Starters">Fld</th><th title="Finish, superscript = lengths beaten (winner: margin)">Fin</th><th class="n" title="Equibase speed figure">Fig</th><th>Jockey</th><th class="n">Wt</th><th class="n">Earn</th><th>Trainer</th></tr></thead>
     <tbody>${rows}</tbody></table></div>${years}`;
+}
+function todayLine(id) {
+  const e = entryOf(id); if (!e) return '';
+  const bits = [];
+  if (e.jockey) bits.push(`<b>${esc(e.jockey)}</b>${e.amateur ? ' (A)' : ''}`);
+  if (e.wt) bits.push(`<b>${e.wt}</b> lb${e.allow ? ' (' + '*'.repeat(e.allow) + ' allowance)' : ''}`);
+  if (e.med) bits.push(e.med.startsWith('L') ? 'Lasix' + (e.med === 'L1' ? ' first time' : e.med === 'LX' ? ' off (LX)' : '') : esc(e.med));
+  if (e.claim) bits.push('Clm ' + money(e.claim));
+  if (e.trainer) bits.push('Tr ' + esc(e.trainer));
+  if (e.ae) bits.push('also eligible');
+  return `<div class="today"><span class="k">Today:</span> ${bits.join(' · ')}</div>`;
 }
 function renderPP() {
   return state.horses.map((id, i) => ppBlock(id, i)).join('') +
@@ -769,9 +826,14 @@ function render() {
   renderField(); renderRaceHead();
   $('#ppOpts').hidden = state.tab !== 'pp';
   for (const t of ['pp', 'cmp', 'h2h']) $('#tab-' + t).setAttribute('aria-selected', String(state.tab === t));
-  $('#notice').innerHTML = state.example ? `<div class="notice">Example card: the field from <b>${esc(state.example)}</b>. Clear the field and add the entries for your race, or load another past field.</div>` : '';
+  const x = entryCtx();
+  $('#notice').innerHTML = x ? `<div class="racehead"><div>
+      <div class="t">${esc(x.c.meet)} · ${fmtDate(x.c.date)} · Race ${x.r.no}${x.r.div ? ' div ' + x.r.div : ''}${x.r.post ? ' · ' + esc(x.r.post) : ''}</div>
+      <div class="c">${[x.r.name, x.r.type && x.r.type !== x.r.name ? x.r.type : '', x.r.purse ? money(x.r.purse) : '', [x.r.dist, x.r.surface].filter(Boolean).join(' ')].filter(Boolean).map(esc).join(' · ')}</div>
+      ${x.r.conditions ? `<div class="cond">${esc(x.r.conditions)}</div>` : ''}</div>
+      <div class="par"><span class="status ${x.c.status}">${x.c.status === 'final' ? 'Final' : 'Provisional'} entries</span><br>${esc(x.c.source)} overnight · fetched ${esc(x.c.fetched || '')}</div></div>` : '';
   const v = $('#view');
-  if (!state.horses.length) { v.innerHTML = '<div class="empty-form"><b>Build the field.</b><br>Type a horse\'s name in <b>The field</b> box to add each entry for the race, or load the field from a past race. Their past performances appear here side by side, with a comparison sheet and head-to-head record.</div>'; return; }
+  if (!state.horses.length) { v.innerHTML = x ? '<div class="empty-form">None of the entries in this race have starts in the archive yet.</div>' : '<div class="empty-form"><b>Build the field.</b><br>Choose a race from <b>Race card</b> to load its entries, type a horse\'s name to add each runner yourself, or load the field from a past race. Their past performances appear here side by side, with a comparison sheet and head-to-head record.</div>'; return; }
   v.innerHTML = state.tab === 'pp' ? renderPP() : state.tab === 'cmp' ? renderCmp() : renderH2H();
 }
 function commit() { store.set('spp.current', state); render(); }
@@ -783,11 +845,12 @@ function toast(msg) {
 }
 
 // ---------------------------------------------------------------- saved cards
-const cardOf = () => ({ horses: state.horses, course: state.course, kind: state.kind, furlongs: state.furlongs, going: state.going, date: state.date });
+const cardOf = () => ({ horses: state.horses, entry: state.entry });
 function applyCard(c) {
   state.horses = (c.horses || []).map(resolveId).filter(x => x != null);
   state.course = c.course ?? -1; state.kind = c.kind || ''; state.furlongs = +c.furlongs || 0; state.going = c.going || ''; state.date = c.date || '';
   if (state.course >= C.length) state.course = -1;
+  state.entry = c.entry && (D.cards || []).some(x => x.id === c.entry.card) ? c.entry : null;
   state.example = null; syncControls(); commit();
 }
 function renderSaved() {
@@ -815,7 +878,8 @@ function wire() {
     if (rm) { state.horses.splice(+rm.dataset.rm, 1); state.example = null; commit(); }
     if (up) { const i = +up.dataset.up; [state.horses[i - 1], state.horses[i]] = [state.horses[i], state.horses[i - 1]]; commit(); }
   });
-  $('#clearField').addEventListener('click', () => { state.horses = []; state.example = null; commit(); $('#q').focus(); });
+  $('#clearField').addEventListener('click', () => { state.horses = []; state.entry = null; state.example = null; $('#entryRace').value = ''; commit(); $('#q').focus(); });
+  $('#entryRace').addEventListener('change', e => { const v = e.target.value; if (v) { const k = v.lastIndexOf('|'); loadEntryRace(v.slice(0, k), +v.slice(k + 1)); } });
   $('#pastRace').addEventListener('change', e => { if (e.target.value !== '') loadRaceField(+e.target.value); e.target.value = ''; });
   $('#nLines').addEventListener('change', e => { state.nLines = +e.target.value; commit(); });
   $('#lineFilter').addEventListener('change', e => { state.lineFilter = e.target.value; commit(); });
@@ -865,7 +929,7 @@ function fromHash() {
   catch (e) { $('#view').innerHTML = `<div class="empty-form"><b>The Form could not load.</b><br>${esc(e.message)} Reload the page to try again.</div>`; return; }
   const nStarts = H.reduce((a, h) => a + h[10].length, 0);
   $('#meta').innerHTML = `<b>${H.length.toLocaleString()}</b> horses · <b>${nStarts.toLocaleString()}</b> starts · ${Math.floor(R[0][0] / 10000)}–${Math.floor(R[R.length - 1][0] / 10000)} · results through ${fmtDate(R[R.length - 1][0])} · data built ${esc(D.built)}`;
-  initControls(); wire(); renderSaved();
+  initControls(); initEntries(); wire(); renderSaved();
   const fromLink = fromHash(), saved = store.get('spp.current', null);
   if (saved) { state.tab = saved.tab || 'pp'; state.nLines = saved.nLines || 10; state.lineFilter = saved.lineFilter || 'all'; state.flat = saved.flat || 'show'; }
   if (fromLink) applyCard(fromLink);
