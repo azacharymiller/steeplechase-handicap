@@ -521,7 +521,7 @@ function renderField() {
   if (!state.horses.length && !extra.length) { ul.innerHTML = '<li class="field-empty">No horses yet. Choose a race card above, or search to add the entries for the race.</li>'; return; }
   const items = state.horses.map((id, i) => {
     const h = H[byId.get(id)];
-    return `<li><span>${pgm(i)}</span><div><div class="nm">${esc(h[1])}</div><div class="sub">${years(h)} · ${h[10].length} starts${h[6] ? ' · by ' + esc(h[6]) : ''}</div></div>
+    return `<li><span>${pgm(i)}</span><div><div class="nm">${esc(h[1])}</div><div class="sub">${h[10].length ? years(h) + ' · ' + h[10].length + ' starts' : 'No jump starts in the archive' + (eqLife(h) && eqLife(h).st ? ' · Equibase ' + eqLife(h).st + ' starts' : '')}${h[6] ? ' · by ' + esc(h[6]) : ''}</div></div>
       <div class="ops"><button class="btn small ghost" data-up="${i}" aria-label="Move ${esc(h[1])} up" ${i ? '' : 'disabled'}>↑</button><button class="btn small ghost" data-rm="${i}" aria-label="Remove ${esc(h[1])}">✕</button></div></li>`;
   });
   // with a race card loaded, horses with no starts sit in program order among the rest
@@ -538,6 +538,7 @@ function search(q) {
   const pre = [], mid = [];
   for (let i = 0; i < lowerNames.length; i++) {
     const n = lowerNames[i];
+    if (H[i][0] < 0) continue;
     if (n.startsWith(q)) pre.push(i); else if (mid.length < 40 && n.includes(q)) mid.push(i);
   }
   const last = i => H[i][10].length ? R[H[i][10][0][0]][0] : 0;
@@ -602,7 +603,7 @@ function ppBlock(id, pos) {
   const age = h[5] ? Math.floor(td / 10000) - h[5] : null;
   const ty = Math.floor(td / 10000), latestYear = h[10].length ? Math.floor(R[h[10][0][0]][0] / 10000) : ty;
   const y1 = Math.min(ty, latestYear) >= ty ? ty : latestYear, y0 = y1 - 1;
-  const rows = [
+  let rows = [
     ['Life', rec(h), false, false],
     [String(y1), rec(h, r => Math.floor(r[0] / 10000) === y1), false, false],
     [String(y0), rec(h, r => Math.floor(r[0] / 10000) === y0), false, true],
@@ -613,9 +614,11 @@ function ppBlock(id, pos) {
   const fr = flatRec(h); if (fr.st) rows.push(['Flat*', fr, false, true]);
   const el = eqLife(h); if (el && el.st) rows.push(['Equibase', el, false, !fr.st]);
   for (const g of ['firm', 'good', 'soft']) rows.push([g === 'soft' ? 'Yld/Sft' : g[0].toUpperCase() + g.slice(1), rec(h, r => goingOf(r) === g), state.going === g, g === 'firm' && !(state.kind && state.furlongs)]);
+  if (!h[10].length) { rows = rows.filter(r => r[0] === 'Flat*' || r[0] === 'Equibase').map(r => [r[0], r[1], false, false]); if (!rows.length) rows = [['Life', rec(h), false, false]]; }
   const recbox = `<table class="recbox" aria-label="Record">${rows.map(([l, o, on, sep]) =>
     `<tr class="${on ? 'on' : ''}${sep ? ' sep' : ''}"><td>${esc(l)}</td><td>${o.st}</td><td>${o.w}</td><td>${o.p}</td><td>${o.s}</td><td>${money(o.e) || '$0'}</td></tr>`).join('')}</table>`;
-  const owner = last ? V[last[6]] : '', trainer = last ? V[last[5]] : '';
+  const ent = entryOf(id);
+  const owner = last ? V[last[6]] : (ent && ent.owner) || '', trainer = last ? V[last[5]] : (ent && ent.trainer) || '';
   const color = h[3] ? h[3] + '.' : '', sex = SEX[h[4]] ? SEX[h[4]] + '.' : '';
   const ident = [color, sex, age && age > 0 && age < 30 ? age : '', h[5] ? `(${h[5]})` : ''].filter(Boolean).join(' ');
   const sameName = H.filter(x => x[1] === h[1]).length > 1;
@@ -666,9 +669,9 @@ function ppBlock(id, pos) {
         </div></div>
       <div class="recwrap">${recbox}</div>
     </div>
-    <div class="lines"><table class="pplines">
+    ${!h[10].length ? `<div class="flathead"><b>Jump form</b><span>No starts in the steeplechase archive${eq(h) ? '' : ' · no North American record in Timbercreek either (likely raced only abroad)'}</span></div>` : `<div class="lines"><table class="pplines">
       <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th>Time</th><th class="n" title="Winning time against course par, seconds">Par±</th><th>Class</th><th class="n" title="Starters">Fld</th><th>Fin</th><th>Jockey</th><th class="n">Wt</th><th class="n" title="Earnings">Earn</th><th>Order of finish (1st–7th)</th></tr></thead>
-      <tbody>${body || `<tr><td colspan="12" class="muted">No ${KIND[state.lineFilter] ? KIND[state.lineFilter].toLowerCase() + ' ' : ''}starts on record.</td></tr>`}</tbody></table></div>
+      <tbody>${body || `<tr><td colspan="12" class="muted">No ${KIND[state.lineFilter] ? KIND[state.lineFilter].toLowerCase() + ' ' : ''}starts on record.</td></tr>`}</tbody></table></div>`}
     ${flatSection(h, hi)}
     <div class="pp-foot">${lastLine}${more > 0 ? ` · ${more} earlier start${more > 1 ? 's' : ''} not shown` : ''}</div>
   </article>`;
@@ -697,7 +700,7 @@ function flatSection(h, hi) {
       <td>${esc(V[l[14]])}</td></tr>`;
   }).join('');
   const more = e[2].length - shown.length;
-  return `<div class="flathead"><b>Flat form</b><span>Thoroughbred flat starts from Equibase and BloodHorse charts${el && el.fig ? ` · best Equibase speed figure <b>${el.fig}</b>` : ''}${more > 0 ? ` · ${more} more not shown` : ''}</span></div>
+  return `<div class="flathead"><b>${h[0] < 0 ? 'Equibase form' : 'Flat form'}</b><span>${h[0] < 0 ? 'North American starts' : 'Thoroughbred flat starts'} from Equibase and BloodHorse charts${el && el.fig ? ` · best Equibase speed figure <b>${el.fig}</b>` : ''}${more > 0 ? ` · ${more} more not shown` : ''}</span></div>
     <div class="lines"><table class="pplines">
     <thead><tr><th>Date / Trk</th><th>Cond</th><th>Dist</th><th>Class</th><th class="n" title="Starters">Fld</th><th title="Finish, superscript = lengths beaten (winner: margin)">Fin</th><th class="n" title="Equibase speed figure">Fig</th><th>Jockey</th><th class="n">Wt</th><th class="n">Earn</th><th>Trainer</th></tr></thead>
     <tbody>${rows}</tbody></table></div>${years}`;
@@ -747,8 +750,8 @@ const COLS = [
   { k: 'name', t: 'Horse', l: true, v: m => m.h[1], show: m => `<span class="hn">${esc(m.h[1])}</span><span class="s">${years(m.h)}${m.h[5] ? ' · foaled ' + m.h[5] : ''}</span>` },
   { k: 'st', t: 'Starts', v: m => m.life.st, best: 'max' },
   { k: 'rec', t: 'W-P-S', v: m => recScore(m.life), show: m => `${m.life.w}-${m.life.p}-${m.life.s}`, best: 'max' },
-  { k: 'win', t: 'Win%', v: m => m.winPct, show: m => pct(m.winPct), best: 'max' },
-  { k: 'itm', t: 'ITM%', v: m => m.itmPct, show: m => pct(m.itmPct), best: 'max' },
+  { k: 'win', t: 'Win%', v: m => m.winPct, show: m => m.life.st ? pct(m.winPct) : '—', best: 'max' },
+  { k: 'itm', t: 'ITM%', v: m => m.itmPct, show: m => m.life.st ? pct(m.itmPct) : '—', best: 'max' },
   { k: 'earn', t: 'Earnings', v: m => m.life.e, show: m => money(m.life.e) || '$0', best: 'max' },
   { k: 'yr', t: 'This year', v: m => recScore(m.yr), show: m => recCell(m.yr), best: 'max' },
   { k: 'tim', t: 'Timber', v: m => recScore(m.tim), show: m => recCell(m.tim), best: 'max' },
@@ -757,7 +760,7 @@ const COLS = [
   { k: 'fig', t: 'Best fig', v: m => m.fig || -1, show: m => m.fig ? `${m.fig}<span class="s">Equibase</span>` : '—', best: 'max' },
   { k: 'days', t: 'Days off', v: m => m.days ?? 1e9, show: m => m.days == null ? '—' : `${m.days}<span class="s">${fmtDate(m.last[0])} ${esc(C[m.last[1]][0])}</span>` },
   { k: 'form', t: 'Last 5', l: true, v: m => m.form, show: m => esc(m.form) },
-  { k: 'comp', t: 'Finished', v: m => m.compPct, show: m => `${pct(m.compPct)}<span class="s">${m.errs} fell/unseated · ${m.pu} PU</span>`, best: 'max' },
+  { k: 'comp', t: 'Finished', v: m => m.life.st ? m.compPct : -1, show: m => !m.life.st ? '—' : `${pct(m.compPct)}<span class="s">${m.errs} fell/unseated · ${m.pu} PU</span>`, best: 'max' },
   { k: 'var', t: 'Best Par±', v: m => m.bestVar ?? 1e9, show: m => m.bestVar == null ? '—' : sgn(m.bestVar), best: 'min' },
   { k: 'conn', t: 'Last rider / trainer', l: true, v: m => m.rider, show: m => `${esc(m.rider || '—')}<span class="s">${esc(m.trainer || '')}</span>` },
 ];
