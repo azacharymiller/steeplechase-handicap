@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Steeplechase Past Performances</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="Handicapping past performances for American steeplechase horses, built on the CEO results database.">
+<meta name="description" content="Handicapping past performances for American steeplechase horses, built on the American Point-to-Point results database.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap">
@@ -309,7 +309,7 @@ footer.colophon {
 
 <header class="masthead">
   <h1>Steeplechase <span>Past Performances</span></h1>
-  <div class="meta" id="meta">Built on the CEO steeplechase results archive</div>
+  <div class="meta" id="meta">Built on the American Point-to-Point steeplechase results archive</div>
 </header>
 
 <main class="desk">
@@ -374,7 +374,7 @@ footer.colophon {
 </main>
 
 <footer class="colophon">
-  Data: CEO and NSA steeplechase results, 1966 to date, cleaned and maintained in the CEO database. Winning margin is the winner's margin over the second horse; beaten lengths for other finishers are not recorded in the charts. <b>Par±</b> compares a race's winning time with the average winning time for the same course, type and distance (three or more races needed); minus is faster.
+  Data: American Point-to-Point and NSA steeplechase results, 1966 to date. <b>Win Mgn</b> is the winner's margin over the second horse, the only margin the charts record; beaten lengths for other finishers are not recorded. <b>Par±</b> compares a race's winning time with the average winning time for the same course, type and distance (three or more races needed); minus is faster.
 </footer>
 
 <script>
@@ -592,7 +592,7 @@ function fillRaceCards() {
   rcGroups = [];
   if (season === 'up') {
     for (const c of (D.cards || [])) rcGroups.push({
-      head: `${c.meet} · ${dayName(c.date)}`, sub: `${c.status === 'final' ? 'Final' : 'Provisional'} entries · ${c.source}`,
+      head: `${c.meet} · ${dayName(c.date)}`, sub: `${c.status === 'final' ? 'Final' : 'Provisional'} entries · ${srcName(c.source)}`,
       items: c.races.map((r, i) => ({ v: `card|${c.id}|${i}`, no: `R${r.no}${r.div ? '/' + r.div : ''}`,
         text: r.name || r.type, k: [r.post, r.surface, r.entries.length + ' entered'].filter(Boolean).join(' · ') })) });
   } else {
@@ -719,15 +719,15 @@ function topFinishers(ri, selfIdx) {
     const h = H[e[0]]; const pos = state.horses.indexOf(h[0]);
     let nm = esc(h[1]);
     if (e[0] === selfIdx) nm = `<span class="me">${nm}</span>`; else if (pos >= 0) nm = `<mark>${nm}</mark>${pgm(pos, true)}`;
-    const sup = (k === 0 && e[1] === '1' && r[14]) ? `<sup>${esc(r[14])}</sup>` : '';
+    const sup = '';
     const code = /^\d+$/.test(e[1]) && +e[1] > 0 ? '' : `<span class="muted">(${esc(e[1] || '—')})</span>`;
     return `${nm}${e[2] ? e[2] : ''}${sup}${code}`;
   }).join(' ');
 }
+const srcName = s => s === 'CEO' ? 'American Point-to-Point' : s;
 function finCell(s, r) {
   const f = s[1] || '—';
-  if (f === '1') return `<span class="fin win">1${r[14] ? `<sup>${esc(r[14])}</sup>` : ''}</span>`;
-  if (f === '2' && r[14]) return `<span class="fin">2<sup>${esc(r[14])}</sup></span>`;
+  if (f === '1') return `<span class="fin win">1</span>`;
   return `<span class="fin${ERR.has(f) ? ' err' : ''}">${esc(f)}</span>`;
 }
 function ppBlock(id, pos) {
@@ -764,8 +764,8 @@ function ppBlock(id, pos) {
     const r = R[s[0]], m = lineMatch(r);
     const gap = daysBetween(r[0], prev);
     if ((k === 0 && isoToInt(state.date) && gap > 0) || (k > 0 && gap >= 90)) {
-      if (k === 0) body += `<tr class="gap"><td colspan="12">${gap} days since last start</td></tr>`;
-      else body += `<tr class="gap"><td colspan="12">Away ${gap} days</td></tr>`;
+      if (k === 0) body += `<tr class="gap"><td colspan="13">${gap} days since last start</td></tr>`;
+      else body += `<tr class="gap"><td colspan="13">Away ${gap} days</td></tr>`;
     }
     prev = r[0];
     const hl = (on, html) => on ? `<mark>${html}</mark>` : html;
@@ -781,6 +781,7 @@ function ppBlock(id, pos) {
       <td title="${esc(V[r[4]])}${V[r[5]] ? ' · ' + esc(V[r[5]]) : ''}">${hl(m.kind, cls)}</td>
       <td class="n">${raceEnt[s[0]].length}</td>
       <td>${finCell(s, r)}</td>
+      <td class="n">${r[14] ? esc(r[14]) : ''}</td>
       <td>${esc(riderShort(V[s[3]]))}${amat}</td>
       <td class="n">${s[2] || ''}</td>
       <td class="n">${s[7] ? kpurse(s[7]) : ''}</td>
@@ -802,9 +803,9 @@ function ppBlock(id, pos) {
         </div></div>
       <div class="recwrap">${recbox}</div>
     </div>
-    ${!h[10].length ? `<div class="flathead"><b>Jump form</b><span>No starts in the steeplechase archive${eq(h) ? '' : ' · no North American record in Timbercreek either (likely raced only abroad)'}</span></div>` : `<div class="lines"><table class="pplines">
-      <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th>Time</th><th class="n" title="Winning time against course par, seconds">Par±</th><th>Class</th><th class="n" title="Starters">Fld</th><th>Fin</th><th>Jockey</th><th class="n">Wt</th><th class="n" title="Earnings">Earn</th><th>Order of finish</th></tr></thead>
-      <tbody>${body || `<tr><td colspan="12" class="muted">No ${KIND[state.lineFilter] ? KIND[state.lineFilter].toLowerCase() + ' ' : ''}starts on record.</td></tr>`}</tbody></table></div>`}
+    ${!h[10].length ? `<div class="flathead"><b>Jump form</b><span>No starts in the steeplechase archive${eq(h) ? '' : ' · no North American record either (likely raced only abroad)'}</span></div>` : `<div class="lines"><table class="pplines">
+      <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th>Time</th><th class="n" title="Winning time against course par, seconds">Par±</th><th>Class</th><th class="n" title="Starters">Fld</th><th>Fin</th><th class="n" title="Winning margin: the winner's margin over the second horse, in lengths">Win Mgn</th><th>Jockey</th><th class="n">Wt</th><th class="n" title="Earnings">Earn</th><th>Order of finish</th></tr></thead>
+      <tbody>${body || `<tr><td colspan="13" class="muted">No ${KIND[state.lineFilter] ? KIND[state.lineFilter].toLowerCase() + ' ' : ''}starts on record.</td></tr>`}</tbody></table></div>`}
     ${flatSection(h, hi)}
     <div class="pp-foot">${lastLine}${more > 0 ? ` · ${more} earlier start${more > 1 ? 's' : ''} not shown` : ''}</div>
   </article>`;
@@ -856,7 +857,7 @@ function todayLine(id) {
 }
 function renderPP() {
   return state.horses.map((id, i) => ppBlock(id, i)).join('') +
-    `<div class="legend" style="border:0;padding:0"><span><mark>highlighted</mark> a horse in this field</span><span><b>T</b> timber · <b>H</b> hurdles/national fences · <b>B</b> brush · <b>f</b> flat · <b>X</b> special course</span><span>Fin superscript: winning margin (lengths)</span><span>Time: superscript = fifths</span><span>Flat form: race-by-race lines cover 2021–23 and Aug 2024 on; yearly Equibase records cover 2000 on. Flat* counts only the flat lines on file.</span></div>`;
+    `<div class="legend" style="border:0;padding:0"><span><mark>highlighted</mark> a horse in this field</span><span><b>T</b> timber · <b>H</b> hurdles/national fences · <b>B</b> brush · <b>f</b> flat · <b>X</b> special course</span><span><b>Win Mgn</b>: the winner's margin over the second horse (lengths)</span><span>Time: superscript = fifths</span><span>Flat form: race-by-race lines cover 2021–23 and Aug 2024 on; yearly Equibase records cover 2000 on. Flat* counts only the flat lines on file.</span></div>`;
 }
 
 // ---------------------------------------------------------------- comparison
@@ -974,7 +975,7 @@ function render() {
       ${x.r.conditions ? `<div class="cond">${esc(x.r.conditions)}</div>` : ''}
       ${parSummary(x.c.course, x.r.sc, x.r.f, x.r.hist != null ? goingOf(R[x.r.hist]) : '')}
       ${x.r.hist != null ? histResult(x.r.hist) : ''}</div>
-      <div class="par">${x.r.hist != null ? `<span class="status final">Past race</span><br>form shown as it stood on race day` : `<span class="status ${x.c.status}">${x.c.status === 'final' ? 'Final' : 'Provisional'} entries</span><br>${esc(x.c.source)} overnight · fetched ${esc(x.c.fetched || '')}`}</div></div>` : '';
+      <div class="par">${x.r.hist != null ? `<span class="status final">Past race</span><br>form shown as it stood on race day` : `<span class="status ${x.c.status}">${x.c.status === 'final' ? 'Final' : 'Provisional'} entries</span><br>${esc(srcName(x.c.source))} overnight · fetched ${esc(x.c.fetched || '')}`}</div></div>` : '';
   const v = $('#view');
   if (!state.horses.length) { v.innerHTML = x ? '<div class="empty-form">None of the entries in this race have starts in the archive yet.</div>' : '<div class="empty-form"><b>Build the field.</b><br>Choose a race from <b>Race card</b> to load its entries, type a horse\'s name to add each runner yourself, or load the field from a past race. Their past performances appear here side by side, with a comparison sheet and head-to-head record.</div>'; return; }
   v.innerHTML = state.tab === 'pp' ? renderPP() : state.tab === 'cmp' ? renderCmp() : renderH2H();
