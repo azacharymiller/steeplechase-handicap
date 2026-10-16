@@ -136,6 +136,10 @@ select, input[type="text"], input[type="date"], input[type="search"] {
 .status { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 1px 6px; border: 1px solid currentColor; border-radius: 2px; }
 .status.final { color: var(--good); }
 .status.provisional { color: var(--muted); }
+.racehead .avg { font-size: 12.5px; margin-top: 4px; }
+.racehead .avg mark { background: var(--hilite); color: var(--hilite-ink); padding: 0 3px; }
+.racehead .result { font-size: 12px; margin-top: 5px; color: var(--muted); }
+.racehead .result summary { cursor: pointer; color: var(--accent); font-weight: 700; }
 .racehead .cond { font-size: 12px; color: var(--muted); margin-top: 3px; max-width: 80ch; }
 .today { font-weight: 600; }
 .today b { font-weight: 800; }
@@ -281,19 +285,19 @@ footer.colophon {
   <aside class="rail" aria-label="Race card">
     <section class="panel" aria-labelledby="h-field">
       <h2 id="h-field">The field <span class="count" id="fieldCount"></span></h2>
-      <label class="f">Race card (NSA and CEO entries)
-        <select id="entryRace"></select>
-      </label>
+      <div class="grid2" style="grid-template-columns: minmax(0, 7.5em) minmax(0, 1fr)">
+        <label class="f">Season
+          <select id="season"></select>
+        </label>
+        <label class="f">Race card
+          <select id="entryRace"></select>
+        </label>
+      </div>
       <div class="search">
         <input type="search" id="q" placeholder="Add a horse: type a name" autocomplete="off" aria-label="Search horses" aria-controls="results">
         <div class="results" id="results" hidden></div>
       </div>
       <ol class="field" id="field"></ol>
-      <div class="row">
-        <label class="f" style="flex:1">Or load a field from a past race
-          <select id="pastRace"></select>
-        </label>
-      </div>
       <div class="row">
         <button class="btn small" id="clearField" type="button">Clear field</button>
       </div>
@@ -359,7 +363,7 @@ const byId = new Map();     // horse id -> index
 let raceEnt;                // race -> [[horseIdx, fin, wt], ...] sorted by finish
 const par = new Map();      // course|surface|furlongs -> average winning seconds
 let lowerNames;
-const state = { horses: [], course: -1, kind: '', furlongs: 0, going: '', date: '', tab: 'pp', nLines: 10, lineFilter: 'all', flat: 'show', sort: null, example: null, entry: null };
+const state = { horses: [], course: -1, kind: '', furlongs: 0, going: '', date: '', tab: 'pp', nLines: 10, lineFilter: 'all', flat: 'show', sort: null, example: null, entry: null, asOf: null };
 
 // ---------------------------------------------------------------- storage (per-viewer convenience only)
 const store = {
@@ -393,7 +397,24 @@ function years(h) {
   const a = Math.floor(R[ss[ss.length - 1][0]][0] / 10000), b = Math.floor(R[ss[0][0]][0] / 10000);
   return a === b ? String(a) : a + '–' + String(b);
 }
+const raceTitle = r => { const n = V[r[5]]; return n && !/^\$|^(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth) race/i.test(n) ? n : (V[r[4]] || V[r[3]]); };
+const histCache = new Map();
+function histCard(ri) {
+  if (histCache.has(ri)) return histCache.get(ri);
+  const r = R[ri];
+  const ents = raceEnt[ri].map(e => {
+    const h = H[e[0]], st = h[10].find(x => x[0] === ri);
+    return { name: h[1], hid: h[0], fin: e[1], jockey: st ? V[st[3]] : '', amateur: !!(st && st[4]), wt: st ? st[2] : null,
+             trainer: st ? V[st[5]] : '', owner: st ? V[st[6]] : '', med: '' };
+  }).sort((a, b) => a.name.localeCompare(b.name));        // program numbers aren't in the charts: listed A-Z, not in finish order
+  ents.forEach((e, k) => { e.pp = String(k + 1); });
+  const x = { c: { id: 'hist', meet: C[r[1]][1], date: r[0], status: 'result', source: 'Archive', course: r[1] },
+              r: { no: r[2], div: 0, post: '', name: raceTitle(r), type: V[r[4]] !== raceTitle(r) ? V[r[4]] : '', purse: r[16], dist: V[r[10]] || V[r[9]],
+                   surface: KIND[r[6]] || '', conditions: '', f: r[8], sc: r[7], entries: ents, hist: ri } };
+  histCache.set(ri, x); return x;
+}
 function entryCtx() {
+  if (state.entry && state.entry.card === 'hist') return R[state.entry.race] ? histCard(state.entry.race) : null;
   if (!state.entry || !D.cards) return null;
   const c = D.cards.find(x => x.id === state.entry.card); const r = c && c.races[state.entry.race];
   return r ? { c, r } : null;
@@ -436,11 +457,28 @@ async function load() {
   for (const e of raceEnt) e.sort((a, b) => fin2num(a[1]) - fin2num(b[1]));
   lowerNames = H.map(h => h[1].toLowerCase());
   const buckets = new Map();
-  R.forEach(r => { if (r[13] > 0 && r[8] > 0) { const k = parKey(r[1], r[7], r[8]); (buckets.get(k) || buckets.set(k, []).get(k)).push(r[13]); } });
-  for (const [k, a] of buckets) if (a.length >= 3) par.set(k, a.reduce((x, y) => x + y, 0) / a.length);
+  const put = (k, t) => (buckets.get(k) || buckets.set(k, []).get(k)).push(t);
+  R.forEach(r => { if (r[13] > 0 && r[8] > 0) { const k = parKey(r[1], r[7], r[8]); put(k, r[13]); const g = goingOf(r); if (g) put(k + '|' + g, r[13]); } });
+  for (const [k, a] of buckets) par.set(k, { avg: a.reduce((x, y) => x + y, 0) / a.length, n: a.length });
 }
 const parKey = (c, s, f) => c + '|' + s + '|' + Math.round(f * 2) / 2;
-function parVar(r) { const p = par.get(parKey(r[1], r[7], r[8])); return p && r[13] ? r[13] - p : null; }
+function parFor(c, sc, f, g) {
+  const k = parKey(c, sc, f), pg = g && par.get(k + '|' + g), pa = par.get(k);
+  return pg && pg.n >= 3 ? pg : pa && pa.n >= 3 ? pa : null;
+}
+function parVar(r) { const p = parFor(r[1], r[7], r[8], goingOf(r)); return p && r[13] ? r[13] - p.avg : null; }
+function parSummary(c, sc, f, going) {
+  if (c == null || c < 0 || !sc || !f) return '';
+  const k = parKey(c, sc, f), bits = [];
+  for (const g of ['firm', 'good', 'soft']) {
+    const p = par.get(k + '|' + g); if (!p) continue;
+    const t = `<b>${fifths(p.avg)}</b> ${g === 'soft' ? 'yielding/soft' : g} (${p.n})`;
+    bits.push(g === going ? `<mark>${t}</mark>` : t);
+  }
+  const all = par.get(k);
+  if (!all) return `<div class="avg">Average Winning Time: no timed races at ${esc(C[c][1])} over this type and distance</div>`;
+  return `<div class="avg">Average Winning Time: ${bits.join(' · ')}${bits.length ? ' · ' : ''}all goings <b>${fifths(all.avg)}</b> (${all.n} races)</div>`;
+}
 const resolveId = id => byId.has(id) ? id : (D.redirects[id] && byId.has(D.redirects[id]) ? D.redirects[id] : null);
 
 // ---------------------------------------------------------------- record helpers
@@ -454,6 +492,17 @@ function rec(h, pred) {
   return o;
 }
 function eq(h) { return h[11] || null; }
+const hvCache = new Map();
+function hv(h) {
+  if (!state.asOf) return h;
+  const k = h[0] + '@' + state.asOf; let v = hvCache.get(k);
+  if (!v) {
+    v = h.slice(); v[10] = h[10].filter(s => R[s[0]][0] < state.asOf);
+    if (h[11]) { const y = Math.floor(state.asOf / 10000); v[11] = [h[11][0], h[11][1].filter(x => x[0] < y), h[11][2].filter(l => l[0] < state.asOf)]; }
+    hvCache.set(k, v);
+  }
+  return v;
+}
 function flatRec(h) {
   const e = eq(h), o = { st: 0, w: 0, p: 0, s: 0, e: 0 };
   if (!e) return o;
@@ -472,19 +521,11 @@ const near = (f, t) => t && f && Math.abs(f - t) <= 1.01;
 const goingOf = r => GOING_GROUP[r[11]] || '';
 
 // ---------------------------------------------------------------- race conditions
-function initControls() {
-  // past fields: the 80 most recent races with 3+ starters
-  const recent = [];
-  for (let i = R.length - 1; i >= 0 && recent.length < 80; i--) if (raceEnt[i].length >= 3 && R[i][6] !== 'O') recent.push(i);
-  $('#pastRace').innerHTML = '<option value="">Choose a race…</option>' + recent.map(i => {
-    const r = R[i];
-    return `<option value="${i}">${fmtDate(r[0])} ${C[r[1]][0]} R${r[2] || '?'} · ${esc(V[r[3]])} ${KIND[r[6]] || ''} ${esc(V[r[9]])} (${raceEnt[i].length})</option>`;
-  }).join('');
-}
+function initControls() {}
 function syncControls() {
   $('#nLines').value = String(state.nLines); $('#lineFilter').value = state.lineFilter; $('#flatOpt').value = state.flat;
 }
-function targetDate() { if (isoToInt(state.date)) return isoToInt(state.date); const t = new Date(); return t.getFullYear() * 10000 + (t.getMonth() + 1) * 100 + t.getDate(); }
+function targetDate() { if (state.asOf) return state.asOf; if (isoToInt(state.date)) return isoToInt(state.date); const t = new Date(); return t.getFullYear() * 10000 + (t.getMonth() + 1) * 100 + t.getDate(); }
 
 // ---------------------------------------------------------------- field
 function addHorse(id) {
@@ -493,24 +534,50 @@ function addHorse(id) {
   state.horses.push(id); state.example = null; commit();
 }
 function loadRaceField(i) {
-  state.horses = raceEnt[i].map(e => H[e[0]][0]);
-  state.entry = null; state.example = null; commit();
+  state.entry = { card: 'hist', race: i }; state.asOf = R[i][0];
+  state.horses = histCard(i).r.entries.map(e => e.hid);
+  state.example = null; commit();
 }
 function loadEntryRace(cardId, ri) {
   const c = (D.cards || []).find(x => x.id === cardId); if (!c) return;
   const r = c.races[ri];
-  state.entry = { card: cardId, race: ri };
+  state.entry = { card: cardId, race: ri }; state.asOf = null;
   state.horses = r.entries.filter(e => e.hid != null && byId.has(e.hid)).map(e => e.hid);
   state.example = null; commit();
 }
 function initEntries() {
-  const sel = $('#entryRace'), cards = D.cards || [];
-  if (!cards.length) { sel.innerHTML = '<option value="">No entries posted yet</option>'; sel.disabled = true; return; }
-  const day = d => { const t = toDate(d); return t.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }) + ' ' + fmtDate(d); };
-  sel.innerHTML = '<option value="">Choose a race…</option>' + cards.map(c =>
-    `<optgroup label="${esc(c.meet)} · ${day(c.date)} · ${c.status === 'final' ? 'final' : 'provisional'} entries (${esc(c.source)})">` +
-    c.races.map((r, i) => `<option value="${esc(c.id)}|${i}">R${r.no}${r.div ? ' div ' + r.div : ''}${r.post ? ' ' + esc(r.post) : ''} · ${esc(r.name || r.type)}${r.surface ? ' · ' + esc(r.surface) : ''} (${r.entries.length})</option>`).join('') +
-    '</optgroup>').join('');
+  const years = [...new Set(R.map(r => Math.floor(r[0] / 10000)))].sort((a, b) => b - a);
+  $('#season').innerHTML = '<option value="up">Upcoming</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
+  $('#season').value = (D.cards || []).length ? 'up' : String(years[0]);
+  fillRaceCards();
+}
+const dayName = d => { const t = toDate(d); return t.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }) + ' ' + fmtDate(d); };
+function fillRaceCards() {
+  const sel = $('#entryRace'), season = $('#season').value;
+  sel.disabled = false;
+  if (season === 'up') {
+    const cards = D.cards || [];
+    if (!cards.length) { sel.innerHTML = '<option value="">No entries posted yet</option>'; sel.disabled = true; return; }
+    sel.innerHTML = '<option value="">Choose a race…</option>' + cards.map(c =>
+      `<optgroup label="${esc(c.meet)} · ${dayName(c.date)} · ${c.status === 'final' ? 'final' : 'provisional'} entries (${esc(c.source)})">` +
+      c.races.map((r, i) => `<option value="card|${esc(c.id)}|${i}">R${r.no}${r.div ? ' div ' + r.div : ''}${r.post ? ' ' + esc(r.post) : ''} · ${esc(r.name || r.type)}${r.surface ? ' · ' + esc(r.surface) : ''} (${r.entries.length})</option>`).join('') +
+      '</optgroup>').join('');
+    return;
+  }
+  // a past season: every meet's races from the archive, newest meet first
+  const y = +season, meets = new Map();
+  R.forEach((r, i) => {
+    if (Math.floor(r[0] / 10000) !== y || raceEnt[i].length < 2) return;
+    const k = r[0] + '|' + r[1]; (meets.get(k) || meets.set(k, []).get(k)).push(i);
+  });
+  const keys = [...meets.keys()].sort((a, b) => b.localeCompare(a));
+  sel.innerHTML = '<option value="">Choose a race…</option>' + keys.map(k => {
+    const ids = meets.get(k).sort((a, b) => R[a][2] - R[b][2]), r0 = R[ids[0]];
+    return `<optgroup label="${esc(C[r0[1]][1])} · ${dayName(r0[0])}">` + ids.map(i => {
+      const r = R[i];
+      return `<option value="hist|${i}">R${r[2] || '?'} · ${esc(raceTitle(r))}${KIND[r[6]] ? ' · ' + KIND[r[6]] : ''} ${esc(V[r[9]])} (${raceEnt[i].length})</option>`;
+    }).join('') + '</optgroup>';
+  }).join('');
 }
 function renderField() {
   const ul = $('#field');
@@ -582,13 +649,14 @@ function lineMatch(r) {
   };
 }
 function topFinishers(ri, selfIdx) {
-  const ents = raceEnt[ri].filter(e => /^\d+$/.test(e[1]) && +e[1] >= 1 && +e[1] <= 7).slice(0, 7); const r = R[ri];
+  const ents = raceEnt[ri]; const r = R[ri];
   return ents.map((e, k) => {
     const h = H[e[0]]; const pos = state.horses.indexOf(h[0]);
     let nm = esc(h[1]);
     if (e[0] === selfIdx) nm = `<span class="me">${nm}</span>`; else if (pos >= 0) nm = `<mark>${nm}</mark>${pgm(pos, true)}`;
     const sup = (k === 0 && e[1] === '1' && r[14]) ? `<sup>${esc(r[14])}</sup>` : '';
-    return `${nm}${e[2] ? e[2] : ''}${sup}`;
+    const code = /^\d+$/.test(e[1]) && +e[1] > 0 ? '' : `<span class="muted">(${esc(e[1] || '—')})</span>`;
+    return `${nm}${e[2] ? e[2] : ''}${sup}${code}`;
   }).join(' ');
 }
 function finCell(s, r) {
@@ -598,7 +666,7 @@ function finCell(s, r) {
   return `<span class="fin${ERR.has(f) ? ' err' : ''}">${esc(f)}</span>`;
 }
 function ppBlock(id, pos) {
-  const hi = byId.get(id), h = H[hi], td = targetDate();
+  const hi = byId.get(id), h = hv(H[hi]), td = targetDate();
   const last = h[10][0], lastRace = last && R[last[0]];
   const age = h[5] ? Math.floor(td / 10000) - h[5] : null;
   const ty = Math.floor(td / 10000), latestYear = h[10].length ? Math.floor(R[h[10][0][0]][0] / 10000) : ty;
@@ -670,7 +738,7 @@ function ppBlock(id, pos) {
       <div class="recwrap">${recbox}</div>
     </div>
     ${!h[10].length ? `<div class="flathead"><b>Jump form</b><span>No starts in the steeplechase archive${eq(h) ? '' : ' · no North American record in Timbercreek either (likely raced only abroad)'}</span></div>` : `<div class="lines"><table class="pplines">
-      <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th>Time</th><th class="n" title="Winning time against course par, seconds">Par±</th><th>Class</th><th class="n" title="Starters">Fld</th><th>Fin</th><th>Jockey</th><th class="n">Wt</th><th class="n" title="Earnings">Earn</th><th>Order of finish (1st–7th)</th></tr></thead>
+      <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th>Time</th><th class="n" title="Winning time against course par, seconds">Par±</th><th>Class</th><th class="n" title="Starters">Fld</th><th>Fin</th><th>Jockey</th><th class="n">Wt</th><th class="n" title="Earnings">Earn</th><th>Order of finish</th></tr></thead>
       <tbody>${body || `<tr><td colspan="12" class="muted">No ${KIND[state.lineFilter] ? KIND[state.lineFilter].toLowerCase() + ' ' : ''}starts on record.</td></tr>`}</tbody></table></div>`}
     ${flatSection(h, hi)}
     <div class="pp-foot">${lastLine}${more > 0 ? ` · ${more} earlier start${more > 1 ? 's' : ''} not shown` : ''}</div>
@@ -705,16 +773,21 @@ function flatSection(h, hi) {
     <thead><tr><th>Date / Trk</th><th>Cond</th><th>Dist</th><th>Class</th><th class="n" title="Starters">Fld</th><th title="Finish, superscript = lengths beaten (winner: margin)">Fin</th><th class="n" title="Equibase speed figure">Fig</th><th>Jockey</th><th class="n">Wt</th><th class="n">Earn</th><th>Trainer</th></tr></thead>
     <tbody>${rows}</tbody></table></div>${years}`;
 }
+function histResult(ri) {
+  const r = R[ri];
+  const fin = raceEnt[ri].map(e => `${esc(e[1] || '—')} ${esc(H[e[0]][1])}`).join(' · ');
+  return `<details class="result"><summary>Show the result</summary>Going ${esc(r[11] || '—')} · time ${esc(r[12] || '—')} · won by ${esc(r[14] || '—')}<br>${fin}</details>`;
+}
 function todayLine(id) {
   const e = entryOf(id); if (!e) return '';
-  const bits = [];
+  const bits = [], x = entryCtx(), label = x && x.r.hist != null ? 'Race day' : 'Today';
   if (e.jockey) bits.push(`<b>${esc(e.jockey)}</b>${e.amateur ? ' (A)' : ''}`);
   if (e.wt) bits.push(`<b>${e.wt}</b> lb${e.allow ? ' (' + '*'.repeat(e.allow) + ' allowance)' : ''}`);
   if (e.med) bits.push(e.med.startsWith('L') ? 'Lasix' + (e.med === 'L1' ? ' first time' : e.med === 'LX' ? ' off (LX)' : '') : esc(e.med));
   if (e.claim) bits.push('Clm ' + money(e.claim));
   if (e.trainer) bits.push('Tr ' + esc(e.trainer));
   if (e.ae) bits.push('also eligible');
-  return `<div class="today"><span class="k">Today:</span> ${bits.join(' · ')}</div>`;
+  return `<div class="today"><span class="k">${label}:</span> ${bits.join(' · ')}</div>`;
 }
 function renderPP() {
   return state.horses.map((id, i) => ppBlock(id, i)).join('') +
@@ -723,7 +796,7 @@ function renderPP() {
 
 // ---------------------------------------------------------------- comparison
 function metrics(id, pos) {
-  const h = H[byId.get(id)], ss = h[10], td = targetDate();
+  const h = hv(H[byId.get(id)]), ss = h[10], td = targetDate();
   const life = rec(h);
   const last = ss[0] && R[ss[0][0]];
   const errs = ss.filter(s => ERR.has(s[1])).length, pu = ss.filter(s => s[1] === 'PU').length;
@@ -793,7 +866,7 @@ function renderH2H() {
   const idx = state.horses.map(id => byId.get(id)), n = idx.length;
   const pos = new Map(idx.map((h, i) => [h, i]));
   const races = new Map();
-  idx.forEach((hi, i) => H[hi][10].forEach(s => { (races.get(s[0]) || races.set(s[0], new Map()).get(s[0])).set(i, s[1]); }));
+  idx.forEach((hi, i) => hv(H[hi])[10].forEach(s => { (races.get(s[0]) || races.set(s[0], new Map()).get(s[0])).set(i, s[1]); }));
   const shared = [...races].filter(([, m]) => m.size >= 2).sort((a, b) => R[b[0]][0] - R[a[0]][0]);
   const W = Array.from({ length: n }, () => new Array(n).fill(0)), M = Array.from({ length: n }, () => new Array(n).fill(0));
   for (const [, m] of shared) {
@@ -833,8 +906,10 @@ function render() {
   $('#notice').innerHTML = x ? `<div class="racehead"><div>
       <div class="t">${esc(x.c.meet)} · ${fmtDate(x.c.date)} · Race ${x.r.no}${x.r.div ? ' div ' + x.r.div : ''}${x.r.post ? ' · ' + esc(x.r.post) : ''}</div>
       <div class="c">${[x.r.name, x.r.type && x.r.type !== x.r.name ? x.r.type : '', x.r.purse ? money(x.r.purse) : '', [x.r.dist, x.r.surface].filter(Boolean).join(' ')].filter(Boolean).map(esc).join(' · ')}</div>
-      ${x.r.conditions ? `<div class="cond">${esc(x.r.conditions)}</div>` : ''}</div>
-      <div class="par"><span class="status ${x.c.status}">${x.c.status === 'final' ? 'Final' : 'Provisional'} entries</span><br>${esc(x.c.source)} overnight · fetched ${esc(x.c.fetched || '')}</div></div>` : '';
+      ${x.r.conditions ? `<div class="cond">${esc(x.r.conditions)}</div>` : ''}
+      ${parSummary(x.c.course, x.r.sc, x.r.f, x.r.hist != null ? goingOf(R[x.r.hist]) : '')}
+      ${x.r.hist != null ? histResult(x.r.hist) : ''}</div>
+      <div class="par">${x.r.hist != null ? `<span class="status final">Past race</span><br>form shown as it stood on race day` : `<span class="status ${x.c.status}">${x.c.status === 'final' ? 'Final' : 'Provisional'} entries</span><br>${esc(x.c.source)} overnight · fetched ${esc(x.c.fetched || '')}`}</div></div>` : '';
   const v = $('#view');
   if (!state.horses.length) { v.innerHTML = x ? '<div class="empty-form">None of the entries in this race have starts in the archive yet.</div>' : '<div class="empty-form"><b>Build the field.</b><br>Choose a race from <b>Race card</b> to load its entries, type a horse\'s name to add each runner yourself, or load the field from a past race. Their past performances appear here side by side, with a comparison sheet and head-to-head record.</div>'; return; }
   v.innerHTML = state.tab === 'pp' ? renderPP() : state.tab === 'cmp' ? renderCmp() : renderH2H();
@@ -853,7 +928,8 @@ function applyCard(c) {
   state.horses = (c.horses || []).map(resolveId).filter(x => x != null);
   state.course = c.course ?? -1; state.kind = c.kind || ''; state.furlongs = +c.furlongs || 0; state.going = c.going || ''; state.date = c.date || '';
   if (state.course >= C.length) state.course = -1;
-  state.entry = c.entry && (D.cards || []).some(x => x.id === c.entry.card) ? c.entry : null;
+  state.entry = c.entry && (c.entry.card === 'hist' ? !!R[c.entry.race] : (D.cards || []).some(x => x.id === c.entry.card)) ? c.entry : null;
+  state.asOf = state.entry && state.entry.card === 'hist' ? R[state.entry.race][0] : null;
   state.example = null; syncControls(); commit();
 }
 function renderSaved() {
@@ -881,9 +957,13 @@ function wire() {
     if (rm) { state.horses.splice(+rm.dataset.rm, 1); state.example = null; commit(); }
     if (up) { const i = +up.dataset.up; [state.horses[i - 1], state.horses[i]] = [state.horses[i], state.horses[i - 1]]; commit(); }
   });
-  $('#clearField').addEventListener('click', () => { state.horses = []; state.entry = null; state.example = null; $('#entryRace').value = ''; commit(); $('#q').focus(); });
-  $('#entryRace').addEventListener('change', e => { const v = e.target.value; if (v) { const k = v.lastIndexOf('|'); loadEntryRace(v.slice(0, k), +v.slice(k + 1)); } });
-  $('#pastRace').addEventListener('change', e => { if (e.target.value !== '') loadRaceField(+e.target.value); e.target.value = ''; });
+  $('#clearField').addEventListener('click', () => { state.horses = []; state.entry = null; state.asOf = null; state.example = null; $('#entryRace').value = ''; commit(); $('#q').focus(); });
+  $('#season').addEventListener('change', fillRaceCards);
+  $('#entryRace').addEventListener('change', e => {
+    const v = e.target.value; if (!v) return;
+    if (v.startsWith('hist|')) loadRaceField(+v.slice(5));
+    else { const rest = v.slice(5), k = rest.lastIndexOf('|'); loadEntryRace(rest.slice(0, k), +rest.slice(k + 1)); }
+  });
   $('#nLines').addEventListener('change', e => { state.nLines = +e.target.value; commit(); });
   $('#lineFilter').addEventListener('change', e => { state.lineFilter = e.target.value; commit(); });
   $('#flatOpt').addEventListener('change', e => { state.flat = e.target.value; commit(); });
@@ -931,7 +1011,7 @@ function fromHash() {
   try { await load(); }
   catch (e) { $('#view').innerHTML = `<div class="empty-form"><b>The Form could not load.</b><br>${esc(e.message)} Reload the page to try again.</div>`; return; }
   const nStarts = H.reduce((a, h) => a + h[10].length, 0);
-  $('#meta').innerHTML = `<b>${H.length.toLocaleString()}</b> horses · <b>${nStarts.toLocaleString()}</b> starts · ${Math.floor(R[0][0] / 10000)}–${Math.floor(R[R.length - 1][0] / 10000)} · results through ${fmtDate(R[R.length - 1][0])} · data built ${esc(D.built)}`;
+  $('#meta').innerHTML = `Results through <b>${fmtDate(R[R.length - 1][0])}</b>`;
   initControls(); initEntries(); wire(); renderSaved();
   const fromLink = fromHash(), saved = store.get('spp.current', null);
   if (saved) { state.tab = saved.tab || 'pp'; state.nLines = saved.nLines || 10; state.lineFilter = saved.lineFilter || 'all'; state.flat = saved.flat || 'show'; }
