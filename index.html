@@ -161,8 +161,37 @@ select, input[type="text"], input[type="date"], input[type="search"] {
 }
 .racehead .t { font-size: 18px; font-weight: 900; font-stretch: 105%; text-transform: uppercase; line-height: 1.1; }
 .racehead .c { font-size: 14px; color: var(--accent); font-weight: 800; }
-#entryRace optgroup { color: var(--accent); font-weight: 800; }
-#entryRace option { color: var(--ink); font-weight: 400; }
+label.f > span, .picker > span { display: block; }
+.picker { position: relative; }
+.pickbtn {
+  width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; text-align: left;
+  padding: 6px 8px; border: 1px solid var(--rule-strong); background: var(--sheet); border-radius: 2px; cursor: pointer;
+  font-size: 13.5px; font-weight: 700; color: var(--accent);
+}
+.pickbtn span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pickbtn:disabled { color: var(--muted); cursor: default; }
+.picklist {
+  position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 2px);
+  background: var(--sheet); border: 1px solid var(--ink); box-shadow: 0 8px 24px rgb(0 0 0 / .18);
+  display: grid; grid-template-rows: auto minmax(0, 1fr); max-height: min(70vh, 560px);
+}
+.picklist input { margin: 6px; width: auto; }
+#rcList { overflow: auto; padding-bottom: 6px; }
+.pgroup {
+  position: sticky; top: 0; background: var(--sheet); color: var(--accent); font-weight: 800; font-size: 12.5px;
+  letter-spacing: .02em; padding: 7px 10px 4px; border-top: 2px solid var(--accent); text-transform: uppercase;
+}
+.pgroup small { display: block; color: var(--muted); font-weight: 600; text-transform: none; letter-spacing: 0; font-size: 11.5px; }
+.popt {
+  display: grid; grid-template-columns: 2.4em minmax(0, 1fr); gap: 0 6px; width: 100%; text-align: left; border: 0;
+  background: none; padding: 5px 10px; cursor: pointer; font-size: 13px; color: var(--ink); border-bottom: 1px solid var(--rule);
+}
+.popt b { color: var(--accent); }
+.popt .k { grid-column: 2; color: var(--muted); font-size: 11.5px; }
+.popt span { min-width: 0; }
+.popt:hover, .popt.on { background: var(--tint); }
+.popt[aria-selected="true"] { background: var(--hilite); color: var(--hilite-ink); }
+.pick-empty { padding: 12px 10px; color: var(--muted); font-size: 12.5px; }
 .racehead .par { text-align: right; font-size: 12px; color: var(--muted); font-stretch: 85%; }
 .racehead .par b { color: var(--ink); font-size: 15px; font-stretch: 100%; }
 @media (max-width: 560px) { .racehead { grid-template-columns: minmax(0, 1fr); } .racehead .par { text-align: left; } }
@@ -287,13 +316,16 @@ footer.colophon {
   <aside class="rail" aria-label="Race card">
     <section class="panel" aria-labelledby="h-field">
       <h2 id="h-field">The field <span class="count" id="fieldCount"></span></h2>
-      <div class="grid2" style="grid-template-columns: minmax(0, 7.5em) minmax(0, 1fr)">
-        <label class="f">Season
-          <select id="season"></select>
-        </label>
-        <label class="f">Race card
-          <select id="entryRace"></select>
-        </label>
+      <label class="f">Season
+        <select id="season"></select>
+      </label>
+      <div class="f picker">
+        <span id="rcLabel">Race card</span>
+        <button type="button" id="rcBtn" class="pickbtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="rcLabel rcBtn"><span id="rcText">Choose a race…</span><span aria-hidden="true">▾</span></button>
+        <div class="picklist" id="rcPop" hidden>
+          <input type="search" id="rcFilter" placeholder="Filter: meet, race or type" aria-label="Filter races" autocomplete="off">
+          <div id="rcList" role="listbox" aria-labelledby="rcLabel"></div>
+        </div>
       </div>
       <div class="search">
         <input type="search" id="q" placeholder="Add a horse: type a name" autocomplete="off" aria-label="Search horses" aria-controls="results">
@@ -554,32 +586,63 @@ function initEntries() {
   fillRaceCards();
 }
 const dayName = d => { const t = toDate(d); return t.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }) + ' ' + fmtDate(d); };
+let rcGroups = [], rcOn = -1, rcSel = '';
 function fillRaceCards() {
-  const sel = $('#entryRace'), season = $('#season').value;
-  sel.disabled = false;
+  const season = $('#season').value;
+  rcGroups = [];
   if (season === 'up') {
-    const cards = D.cards || [];
-    if (!cards.length) { sel.innerHTML = '<option value="">No entries posted yet</option>'; sel.disabled = true; return; }
-    sel.innerHTML = '<option value="">Choose a race…</option>' + cards.map(c =>
-      `<optgroup label="${esc(c.meet)} · ${dayName(c.date)} · ${c.status === 'final' ? 'final' : 'provisional'} entries (${esc(c.source)})">` +
-      c.races.map((r, i) => `<option value="card|${esc(c.id)}|${i}">R${r.no}${r.div ? ' div ' + r.div : ''}${r.post ? ' ' + esc(r.post) : ''} · ${esc(r.name || r.type)}${r.surface ? ' · ' + esc(r.surface) : ''} (${r.entries.length})</option>`).join('') +
-      '</optgroup>').join('');
-    return;
+    for (const c of (D.cards || [])) rcGroups.push({
+      head: `${c.meet} · ${dayName(c.date)}`, sub: `${c.status === 'final' ? 'Final' : 'Provisional'} entries · ${c.source}`,
+      items: c.races.map((r, i) => ({ v: `card|${c.id}|${i}`, no: `R${r.no}${r.div ? '/' + r.div : ''}`,
+        text: r.name || r.type, k: [r.post, r.surface, r.entries.length + ' entered'].filter(Boolean).join(' · ') })) });
+  } else {
+    // a past season: every meet's races from the archive, newest meet first
+    const y = +season, meets = new Map();
+    R.forEach((r, i) => {
+      if (Math.floor(r[0] / 10000) !== y || raceEnt[i].length < 2) return;
+      const k = r[0] + '|' + r[1]; (meets.get(k) || meets.set(k, []).get(k)).push(i);
+    });
+    for (const k of [...meets.keys()].sort((a, b) => b.localeCompare(a))) {
+      const ids = meets.get(k).sort((a, b) => R[a][2] - R[b][2]), r0 = R[ids[0]];
+      rcGroups.push({ head: `${C[r0[1]][1]} · ${dayName(r0[0])}`, sub: 'Result in the archive',
+        items: ids.map(i => { const r = R[i]; return { v: `hist|${i}`, no: `R${r[2] || '?'}`, text: raceTitle(r),
+          k: [KIND[r[6]], V[r[9]], raceEnt[i].length + ' ran'].filter(Boolean).join(' · ') }; }) });
+    }
   }
-  // a past season: every meet's races from the archive, newest meet first
-  const y = +season, meets = new Map();
-  R.forEach((r, i) => {
-    if (Math.floor(r[0] / 10000) !== y || raceEnt[i].length < 2) return;
-    const k = r[0] + '|' + r[1]; (meets.get(k) || meets.set(k, []).get(k)).push(i);
-  });
-  const keys = [...meets.keys()].sort((a, b) => b.localeCompare(a));
-  sel.innerHTML = '<option value="">Choose a race…</option>' + keys.map(k => {
-    const ids = meets.get(k).sort((a, b) => R[a][2] - R[b][2]), r0 = R[ids[0]];
-    return `<optgroup label="${esc(C[r0[1]][1])} · ${dayName(r0[0])}">` + ids.map(i => {
-      const r = R[i];
-      return `<option value="hist|${i}">R${r[2] || '?'} · ${esc(raceTitle(r))}${KIND[r[6]] ? ' · ' + KIND[r[6]] : ''} ${esc(V[r[9]])} (${raceEnt[i].length})</option>`;
-    }).join('') + '</optgroup>';
-  }).join('');
+  $('#rcFilter').value = '';
+  const none = !rcGroups.length;
+  $('#rcBtn').disabled = none;
+  $('#rcText').textContent = none ? (season === 'up' ? 'No entries posted yet' : 'No races that season') : 'Choose a race…';
+  rcSel = '';
+  renderRaceList();
+}
+function renderRaceList() {
+  const q = $('#rcFilter').value.trim().toLowerCase();
+  let html = '', n = 0;
+  for (const g of rcGroups) {
+    const hit = !q || (g.head + ' ' + g.sub).toLowerCase().includes(q);
+    const items = g.items.filter(it => hit || (it.text + ' ' + it.k).toLowerCase().includes(q));
+    if (!items.length) continue;
+    html += `<div class="pgroup">${esc(g.head)}<small>${esc(g.sub)}</small></div>` + items.map(it =>
+      `<button type="button" role="option" class="popt" data-v="${esc(it.v)}" aria-selected="${it.v === rcSel}"><b>${esc(it.no)}</b><span>${esc(it.text)}</span><span class="k">${esc(it.k)}</span></button>`).join('');
+    n += items.length;
+  }
+  $('#rcList').innerHTML = html || '<div class="pick-empty">No race matches that filter.</div>';
+  rcOn = -1;
+}
+function openRacePicker(open) {
+  const pop = $("#rcPop"); if (pop.hidden === !open) return;
+  pop.hidden = !open; $('#rcBtn').setAttribute('aria-expanded', String(open));
+  if (open) { $('#rcFilter').focus(); const sel = $('#rcList [aria-selected="true"]'); if (sel) sel.scrollIntoView({ block: 'center' }); }
+}
+function chooseRace(v) {
+  const btn = $(`#rcList .popt[data-v="${CSS.escape(v)}"]`);
+  rcSel = v;
+  if (btn) $('#rcText').textContent = btn.querySelector('b').textContent + ' · ' + btn.querySelector('span').textContent;
+  openRacePicker(false);
+  if (v.startsWith('hist|')) loadRaceField(+v.slice(5));
+  else { const rest = v.slice(5), k = rest.lastIndexOf('|'); loadEntryRace(rest.slice(0, k), +rest.slice(k + 1)); }
+  $('#rcBtn').focus();
 }
 function renderField() {
   const ul = $('#field');
@@ -959,13 +1022,21 @@ function wire() {
     if (rm) { state.horses.splice(+rm.dataset.rm, 1); state.example = null; commit(); }
     if (up) { const i = +up.dataset.up; [state.horses[i - 1], state.horses[i]] = [state.horses[i], state.horses[i - 1]]; commit(); }
   });
-  $('#clearField').addEventListener('click', () => { state.horses = []; state.entry = null; state.asOf = null; state.example = null; $('#entryRace').value = ''; commit(); $('#q').focus(); });
+  $('#clearField').addEventListener('click', () => { state.horses = []; state.entry = null; state.asOf = null; state.example = null; rcSel = ''; $('#rcText').textContent = rcGroups.length ? 'Choose a race…' : $('#rcText').textContent; renderRaceList(); commit(); $('#q').focus(); });
   $('#season').addEventListener('change', fillRaceCards);
-  $('#entryRace').addEventListener('change', e => {
-    const v = e.target.value; if (!v) return;
-    if (v.startsWith('hist|')) loadRaceField(+v.slice(5));
-    else { const rest = v.slice(5), k = rest.lastIndexOf('|'); loadEntryRace(rest.slice(0, k), +rest.slice(k + 1)); }
+  $('#rcBtn').addEventListener('click', () => openRacePicker($('#rcPop').hidden));
+  $('#rcFilter').addEventListener('input', renderRaceList);
+  $('#rcList').addEventListener('click', e => { const b = e.target.closest('.popt'); if (b) chooseRace(b.dataset.v); });
+  $('#rcPop').addEventListener('keydown', e => {
+    const opts = [...document.querySelectorAll('#rcList .popt')];
+    if (e.key === 'Escape') { openRacePicker(false); $('#rcBtn').focus(); return; }
+    if (!opts.length) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault(); rcOn = (rcOn + (e.key === 'ArrowDown' ? 1 : opts.length - 1 + (rcOn < 0 ? 1 : 0))) % opts.length;
+      opts.forEach((o, k) => o.classList.toggle('on', k === rcOn)); opts[rcOn].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') { e.preventDefault(); chooseRace(opts[Math.max(rcOn, 0)].dataset.v); }
   });
+  document.addEventListener('click', e => { if (!e.target.closest('.picker')) openRacePicker(false); });
   $('#nLines').addEventListener('change', e => { state.nLines = +e.target.value; commit(); });
   $('#lineFilter').addEventListener('change', e => { state.lineFilter = e.target.value; commit(); });
   $('#flatOpt').addEventListener('change', e => { state.flat = e.target.value; commit(); });
