@@ -249,6 +249,7 @@ table.pplines { border-collapse: collapse; width: 100%; min-width: 980px; font-s
 .flathead { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; padding: 7px 10px 4px; border-top: 2px solid var(--ink); background: var(--tint); }
 .flathead b { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
 .flathead span { font-size: 12px; color: var(--muted); font-stretch: 85%; }
+.flathead a, footer.colophon a { color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 .eqyears { padding: 5px 10px 7px; font-size: 12px; color: var(--muted); font-stretch: 80%; border-top: 1px solid var(--rule); }
 .eqyears b { color: var(--ink); }
 .fig { font-weight: 800; }
@@ -373,7 +374,7 @@ footer.colophon {
 </main>
 
 <footer class="colophon">
-  Data: American Point-to-Point and NSA steeplechase results, 1966 to date. <b>Win Mgn</b> is the winner's margin over the second horse, the only margin the charts record; beaten lengths for other finishers are not recorded. <b>Par±</b> compares a race's winning time with the average winning time for the same course, type and distance (three or more races needed); minus is faster.
+  Data: American Point-to-Point and NSA steeplechase results, 1966 to date. Irish point-to-point form courtesy of <a href="https://p2p.ie/" target="_blank" rel="noopener">p2p.ie</a>, used with permission. <b>Win Mgn</b> is the winner's margin over the second horse, the only margin the charts record; beaten lengths for other finishers are not recorded. <b>Par±</b> compares a race's winning time with the average winning time for the same course, type and distance (three or more races needed); minus is faster.
 </footer>
 
 <script>
@@ -806,6 +807,7 @@ function ppBlock(id, pos) {
       <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th>Time</th><th class="n" title="Winning time against course par, seconds">Par±</th><th>Class</th><th class="n" title="Starters">Fld</th><th>Fin</th><th class="n" title="Winning margin: the winner's margin over the second horse, in lengths">Win Mgn</th><th>Jockey</th><th class="n">Wt</th><th class="n" title="Earnings">Earn</th><th>Order of finish</th></tr></thead>
       <tbody>${body || `<tr><td colspan="13" class="muted">No ${KIND[state.lineFilter] ? KIND[state.lineFilter].toLowerCase() + ' ' : ''}starts on record.</td></tr>`}</tbody></table></div>`}
     ${flatSection(h, hi)}
+    ${irishSection(h)}
     <div class="pp-foot">${lastLine}${more > 0 ? ` · ${more} earlier start${more > 1 ? 's' : ''} not shown` : ''}</div>
   </article>`;
 }
@@ -837,6 +839,30 @@ function flatSection(h, hi) {
     <div class="lines"><table class="pplines">
     <thead><tr><th>Date / Trk</th><th>Cond</th><th>Dist</th><th>Class</th><th class="n" title="Starters">Fld</th><th title="Finish, superscript = lengths beaten (winner: margin)">Fin</th><th class="n" title="Equibase speed figure">Fig</th><th>Jockey</th><th class="n">Wt</th><th class="n">Earn</th><th>Trainer</th></tr></thead>
     <tbody>${rows}</tbody></table></div>${years}`;
+}
+// Irish point-to-point form, published with p2p.ie's permission: credit and link to p2p.ie,
+// nothing from behind their paywall (no ratings, replays or analysis).
+function irishSection(h) {
+  const x = D.irish && D.irish[h[0]]; if (!x) return '';
+  const runs = x[1].filter(l => !state.asOf || l[0] < state.asOf); if (!runs.length) return '';
+  const shown = runs.slice(0, state.nLines), more = runs.length - shown.length;
+  const wins = runs.filter(l => l[5] === '1').length;
+  const rows = shown.map(l => {
+    const fin = l[5] || '—', win = fin === '1';
+    return `<tr>
+      <td class="trk">${fmtDate(l[0])} ${esc(l[1] || '')}</td>
+      <td>${esc(l[3] || '—')}</td>
+      <td>${esc(l[2] || '')}</td>
+      <td class="n">${l[4] || ''}</td>
+      <td><span class="fin${win ? ' win' : ''}">${esc(fin)}</span></td>
+      <td class="n">${win ? '' : esc(l[6] || '')}</td>
+      <td>${esc(l[7] || '')}</td>
+      <td>${esc(l[8] || '')}</td></tr>`;
+  }).join('');
+  return `<div class="flathead"><b>Irish point-to-point form</b><span>${runs.length} run${runs.length > 1 ? 's' : ''}, ${wins} win${wins === 1 ? '' : 's'} · results courtesy of <a href="${esc(x[0])}" target="_blank" rel="noopener">p2p.ie</a>${more > 0 ? ` · ${more} more not shown` : ''}</span></div>
+    <div class="lines"><table class="pplines">
+    <thead><tr><th>Date / Course</th><th>Going</th><th>Race</th><th class="n" title="Runners">Ran</th><th>Fin</th><th class="n" title="Distance behind the horse in front">Btn</th><th>Rider</th><th>Handler</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
 }
 function histResult(ri) {
   const r = R[ri];
