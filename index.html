@@ -137,6 +137,14 @@ select, input[type="text"], input[type="date"], input[type="search"] {
 .status.provisional { color: var(--muted); }
 .racehead .avg { font-size: 12.5px; margin-top: 4px; }
 .racehead .avg mark { background: var(--hilite); color: var(--hilite-ink); padding: 0 3px; }
+.results td { vertical-align: top; }
+.results .hlink { all: unset; cursor: pointer; font-weight: 700; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.results .hlink:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.results td.l .s { display: block; font-size: 11px; color: var(--muted); }
+.results td.cmt { white-space: normal; min-width: 220px; font-size: 12px; color: var(--muted); }
+.results tr.open td { background: var(--hl, rgba(0,0,0,.04)); }
+.results tr.ppopen > td { padding: 8px 0 14px; background: transparent; white-space: normal; }
+.resinfo { font-size: 13px; margin: 2px 0 10px; }
 .racehead .result { font-size: 12px; margin-top: 5px; color: var(--muted); }
 .racehead .result summary { cursor: pointer; color: var(--accent); font-weight: 700; }
 .racehead .cond { font-size: 12px; color: var(--muted); margin-top: 3px; max-width: 80ch; }
@@ -586,11 +594,13 @@ function addHorse(id) {
   state.horses.push(id); state.example = null; commit();
 }
 function loadRaceField(i) {
+  state.pick = null;
   state.entry = { card: 'hist', race: i }; state.asOf = R[i][0];
   state.horses = histCard(i).r.entries.map(e => e.hid);
   state.example = null; commit();
 }
 function loadEntryRace(cardId, ri) {
+  state.pick = null;
   const c = (D.cards || []).find(x => x.id === cardId); if (!c) return;
   const r = c.races[ri];
   state.entry = { card: cardId, race: ri }; state.asOf = null;
@@ -928,6 +938,29 @@ function todayLine(id) {
   if (e.ae) bits.push('also eligible');
   return `<div class="today"><span class="k">${label}:</span> ${bits.join(' · ')}</div>`;
 }
+// A resulted race: the chart as a table; click a horse to open his PP card (as it stood on race day) under his line.
+function renderResults(ri) {
+  const r = R[ri], y = Math.floor(r[0] / 10000);
+  const rows = raceEnt[ri].map(e => {
+    const h = H[e[0]], st = h[10].find(x => x[0] === ri) || [];
+    const open = state.pick === h[0], idx = state.horses.indexOf(h[0]);
+    const win = e[1] === '1';
+    const line = `<tr class="resrow${open ? ' open' : ''}">
+      <td><span class="fin${win ? ' win' : ''}">${esc(e[1] || '—')}</span></td>
+      <td class="l"><button class="hlink" data-pick="${h[0]}" aria-expanded="${open}">${esc(h[1])}</button><span class="s">${h[5] ? (y - h[5]) + 'yo ' : ''}${esc(h[4] || '')}${h[6] ? ' · ' + esc(h[6]) : ''}${h[7] ? '–' + esc(h[7]) : ''}</span></td>
+      <td class="n">${st[2] || ''}</td>
+      <td>${esc(V[st[3]] || '')}${st[4] ? ' (A)' : ''}</td>
+      <td>${esc(V[st[5]] || '')}</td>
+      <td>${esc(V[st[6]] || '')}</td>
+      <td class="n">${st[7] ? money(st[7]) : ''}</td>
+      <td class="cmt">${esc(V[st[8]] || '')}</td></tr>`;
+    return line + (open && idx >= 0 ? `<tr class="ppopen"><td colspan="8">${ppBlock(h[0], idx)}</td></tr>` : '');
+  }).join('');
+  return `<div class="sheet"><div class="pad"><div class="resinfo">Going <b>${esc(r[11] || '—')}</b> · time <b>${esc(r[12] || '—')}</b> · won by <b>${esc(r[14] || '—')}</b> · ${raceEnt[ri].length} ran${r[16] ? ' · purse ' + money(r[16]) : ''}</div>
+    <table class="pplines results"><thead><tr><th>Fin</th><th class="l">Horse</th><th class="n" title="Weight carried, lbs">Wt</th><th>Rider</th><th>Trainer</th><th>Owner</th><th class="n">Earned</th><th>Comment</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>
+    <div class="legend"><span>Click a horse to open his past performances as they stood on race day; click again to close</span><span>(A) amateur rider</span></div></div>`;
+}
 function renderPP() {
   return state.horses.map((id, i) => ppBlock(id, i)).join('') +
     `<div class="legend" style="border:0;padding:0"><span><mark>highlighted</mark> a horse in this field</span><span><b>T</b> timber · <b>H</b> hurdles/national fences · <b>B</b> brush · <b>f</b> flat · <b>X</b> special course</span><span><b>Win Mgn</b>: the winner's margin over the second horse (lengths)</span><span>Time: superscript = fifths</span><span>Flat form: race-by-race lines cover 2021–23 and Aug 2024 on; yearly Equibase records cover 2000 on. Flat* counts only the flat lines on file.</span></div>`;
@@ -1054,12 +1087,21 @@ function render() {
       <div class="c">${[x.r.name, x.r.type && x.r.type !== x.r.name ? x.r.type : '', x.r.purse ? money(x.r.purse) : '', [x.r.f ? furl(x.r.f) : x.r.dist, x.r.surface].filter(Boolean).join(' ')].filter(Boolean).map(esc).join(' · ')}</div>
       ${x.r.conditions ? `<div class="cond">${esc(x.r.conditions)}</div>` : ''}
       ${parSummary(x.c.course, x.r.sc, x.r.f, x.r.hist != null ? goingOf(R[x.r.hist]) : '')}
-      ${x.r.hist != null ? histResult(x.r.hist) : ''}</div>
-      <div class="par">${x.r.hist != null ? `<span class="status final">Past race</span><br>form shown as it stood on race day` : `<span class="status ${x.c.status}">${x.c.status === 'final' ? 'Final' : 'Provisional'} entries</span><br>${esc(srcName(x.c.source))} overnight · fetched ${esc(x.c.fetched || '')}`}</div></div>` : '';
+</div>
+      <div class="par">${x.r.hist != null ? `<span class="status final">Result</span><br>past performances as they stood on race day` : `<span class="status ${x.c.status}">${x.c.status === 'final' ? 'Final' : 'Provisional'} entries</span><br>${esc(srcName(x.c.source))} overnight · fetched ${esc(x.c.fetched || '')}`}</div></div>` : '';
   const v = $('#view');
   if (!state.horses.length) { v.innerHTML = x ? '<div class="empty-form">None of the entries in this race have starts in the archive yet.</div>' : '<div class="empty-form"><b>Build the field.</b><br>Choose a race from <b>Race card</b> to load its entries, type a horse\'s name to add each runner yourself, or load the field from a past race. Their past performances appear here side by side, with a comparison sheet and head-to-head record.</div>'; return; }
-  v.innerHTML = state.tab === 'pp' ? renderPP() : state.tab === 'cmp' ? renderCmp() : renderH2H();
+  const past = x && x.r.hist != null;
+  $('#tab-pp').textContent = past ? 'Results' : 'Past performances';
+  $('#ppOpts').hidden = state.tab !== 'pp' || (past && !state.pick);
+  v.innerHTML = state.tab === 'pp' ? (past ? renderResults(x.r.hist) : renderPP()) : state.tab === 'cmp' ? renderCmp() : renderH2H();
+  if (past && state.pick && state.tab === 'pp') { const el = v.querySelector('tr.ppopen'); if (el && pickScroll) { el.previousElementSibling.scrollIntoView({ block: 'start', behavior: 'smooth' }); pickScroll = false; } }
 }
+let pickScroll = false;
+document.addEventListener('click', ev => {
+  const b = ev.target.closest('button.hlink[data-pick]'); if (!b) return;
+  const id = +b.dataset.pick; state.pick = state.pick === id ? null : id; pickScroll = state.pick != null; commit();
+});
 function commit() { store.set('spp.current', state); render(); }
 
 let toastT;
