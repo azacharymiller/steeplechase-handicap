@@ -865,7 +865,7 @@ function trackSection(h) {
   }).join('');
   return `<div class="flathead"><b>British, Irish &amp; French form</b><span>${runs.length} run${runs.length > 1 ? 's' : ''} under Rules, ${wins} win${wins === 1 ? '' : 's'} · results courtesy of <a href="${esc(x[0])}" target="_blank" rel="noopener">At The Races</a>${more > 0 ? ` · ${more} more not shown` : ''}</span></div>
     <div class="lines"><table class="pplines">
-    <thead><tr><th>Date / Course</th><th>Going</th><th>Dist</th><th>Race</th><th class="n" title="Weight carried, stones-pounds">Wt</th><th class="n" title="Official rating">OR</th><th>Fin</th><th>Result</th><th>SP</th><th>Jockey</th></tr></thead>
+    <thead><tr><th>Date / Course</th><th>Going</th><th>Dist</th><th>Race</th><th class="n" title="Weight carried, lbs">Wt</th><th class="n" title="Official rating">OR</th><th>Fin</th><th>Result</th><th>SP</th><th>Jockey</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
 // British and Irish point-to-point form: facts only (no running comments, no proprietary ratings), in our
@@ -886,11 +886,12 @@ function pointSection(h, key, title, credit) {
       <td class="n">${win ? '' : esc(l[6] || '')}</td>
       <td>${esc(l[7] || '')}</td>
       <td>${esc(l[8] || '')}</td>
-      <td class="ofin">${(l[9] || []).map(f => { const me = f[1].toLowerCase() === (h[1] || '').toLowerCase(); const nm = me ? `<span class="me">${esc(f[1])}</span>` : esc(f[1]); return nm + (/^\d+$/.test(f[0]) ? '' : `<span class="muted">(${esc(f[0])})</span>`); }).join(', ')}</td></tr>`;
+      <td class="n">${l[10] || ''}</td>
+      <td class="ofin">${(l[9] || []).map(f => { const me = f[1].toLowerCase() === (h[1] || '').toLowerCase(); const nm = me ? `<span class="me">${esc(f[1])}</span>` : esc(f[1]); return nm + (f[2] || '') + (/^\d+$/.test(f[0]) ? '' : `<span class="muted">(${esc(f[0])})</span>`); }).join(' ')}</td></tr>`;
   }).join('');
   return `<div class="flathead"><b>${title}</b><span>${runs.length} run${runs.length > 1 ? 's' : ''}, ${wins} win${wins === 1 ? '' : 's'} · results courtesy of <a href="${esc(x[0])}" target="_blank" rel="noopener">${credit}</a>${more > 0 ? ` · ${more} more not shown` : ''}</span></div>
     <div class="lines"><table class="pplines">
-    <thead><tr><th>Date / Course</th><th>Going</th><th>Race</th><th class="n" title="Runners">Ran</th><th>Fin</th><th class="n" title="Distance behind the horse in front">Btn</th><th>Rider</th><th>Trainer</th><th>Order of finish</th></tr></thead>
+    <thead><tr><th>Date / Course</th><th>Going</th><th>Race</th><th class="n" title="Runners">Ran</th><th>Fin</th><th class="n" title="Distance behind the horse in front">Btn</th><th>Rider</th><th>Trainer</th><th class="n" title="Weight carried, lbs">Wt</th><th>Order of finish</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
 function histResult(ri) {
