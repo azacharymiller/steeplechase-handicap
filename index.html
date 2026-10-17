@@ -357,7 +357,7 @@ footer.colophon {
         <input type="search" id="dbq" placeholder="Horse, rider, trainer, owner or race" autocomplete="off" aria-label="Search the database" aria-controls="dbres">
         <div class="results" id="dbres" hidden></div>
       </div>
-      <div class="hint">e.g. <i>Lonesome Glory</i> · <i>Sean Clancy</i> · <i>Foxfield Race 1</i> · <i>Maryland Hunt Cup</i></div>
+      <div class="hint">e.g. <i>Lonesome Glory</i> · <i>Sean Clancy</i> · <i>Foxfield Race 1</i> · <i>PW R2</i> · <i>Maryland Hunt Cup</i></div>
     </section>
   </aside>
 
@@ -722,9 +722,17 @@ let dbHits = [], dbOn = 0;
 function raceQuery(q) {
   const m = q.match(/^(.*?)[\s,]*(?:race|r)\s*#?\s*(\d{1,2})$/i);
   const meet = (m ? m[1] : q).trim().toLowerCase(), no = m ? +m[2] : null;
-  if (meet.length < 3) return [];
-  const cs = []; C.forEach((c, i) => { if ((c[1] || '').toLowerCase().includes(meet) || (c[0] || '').toLowerCase() === meet) cs.push(i); });
+  if (meet.length < 2) return [];
   const out = [];
+  // track abbreviation, as in the PP lines (PW, SAR, FOX, MID…): exact match on the code
+  const cc = []; C.forEach((c, i) => { if ((c[0] || '').toLowerCase() === meet) cc.push(i); });
+  if (cc.length) {
+    const set = new Set(cc); let n = 0; R.forEach(r => { if (set.has(r[1]) && (no == null || r[2] === no)) n++; });
+    const names = [...new Set(cc.map(i => C[i][1]))];
+    if (n) out.push({ t: 'race', label: `${meet.toUpperCase()}${no ? ' · Race ' + no : ' · all races'}`, sub: `track code · ${names.slice(0, 2).join(', ')}${names.length > 2 ? ' +' + (names.length - 2) : ''} · ${n} race${n > 1 ? 's' : ''}`, look: { t: 'race', cs: cc, no, q, code: meet.toUpperCase() } });
+  }
+  if (meet.length < 3) return out;
+  const cs = []; C.forEach((c, i) => { if ((c[1] || '').toLowerCase().includes(meet)) cs.push(i); });
   if (cs.length) {
     const set = new Set(cs); let n = 0; R.forEach(r => { if (set.has(r[1]) && (no == null || r[2] === no)) n++; });
     if (n) out.push({ t: 'race', label: `${titleCase(meet)}${no ? ' · Race ' + no : ' · all races'}`, sub: `${n} race${n > 1 ? 's' : ''} at ${cs.length} meet name${cs.length > 1 ? 's' : ''}`, look: { t: 'race', cs, no, q } });
@@ -797,7 +805,7 @@ function renderLook() {
     } else if (L.t === 'race') {
       const set = L.cs ? new Set(L.cs) : null;
       const ids = []; R.forEach((r, i) => { if (set ? set.has(r[1]) && (L.no == null || r[2] === L.no) : raceTitle(r) === L.title) ids.push(i); });
-      head = esc(L.cs ? titleCase(L.q.replace(/[\s,]*(?:race|r)\s*#?\s*\d+$/i, '')) + (L.no ? ' · Race ' + L.no : ' · all races') : L.title);
+      head = esc(L.code ? L.code + ' · ' + [...new Set(L.cs.map(i => C[i][1]))].join(', ') + (L.no ? ' · Race ' + L.no : ' · all races') : L.cs ? titleCase(L.q.replace(/[\s,]*(?:race|r)\s*#?\s*\d+$/i, '')) + (L.no ? ' · Race ' + L.no : ' · all races') : L.title);
       const rows = ids.map(ri => { const r = R[ri], w = raceEnt[ri].find(e => e[1] === '1'), wh = w && H[w[0]], ws = wh && wh[10].find(x => x[0] === ri); return { ri, r, wh, ws }; });
       const cols = [
         ['Date', x => x.r[0] * 100 - (x.r[2] || 0), x => `<td class="trk">${raceLink(x.ri, fmtDate(x.r[0]))}</td>`],
