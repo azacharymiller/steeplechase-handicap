@@ -146,6 +146,8 @@ table.restab tr.open td { background: var(--hl, rgba(0,0,0,.04)); }
 table.restab tr.ppopen > td { padding: 8px 0 14px; background: transparent; white-space: normal; }
 .resinfo { font-size: 13px; margin: 2px 0 10px; display: flex; flex-wrap: wrap; gap: 4px 18px; }
 .dbsearch .results { position: static; max-height: 420px; margin-top: 4px; box-shadow: none; }
+table.sortable th[data-lsort] { cursor: pointer; user-select: none; }
+table.sortable th[data-lsort]:hover { color: var(--accent); }
 .panel .hint { font-size: 11.5px; color: var(--muted); margin-top: 6px; }
 .lookbar { display: flex; justify-content: flex-end; padding: 8px 10px 0; }
 table.restab td .hlink { white-space: nowrap; }
@@ -753,7 +755,7 @@ function dbSearch(q) {
   box.hidden = false;
 }
 const b10 = i => H[i][10].length ? R[H[i][10][0][0]][0] : 0;
-function openLook(look) { state.look = look; state.lookAll = false; $('#dbres').hidden = true; commit(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function openLook(look) { state.look = look; state.lookAll = false; state.lookSort = null; $('#dbres').hidden = true; commit(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 function openPastRace(ri) {
   state.look = null; state.tab = 'pp';
   const y = String(Math.floor(R[ri][0] / 10000)); const sel = $('#season');
@@ -776,34 +778,61 @@ function renderLook() {
       const roles = ['r', 't', 'o'].filter(k => p[k].length);
       const summ = roles.map(k => { const o = { st: 0, w: 0, p: 0, s: 0, e: 0 }; for (const [hi, si] of p[k]) { const st = H[hi][10][si]; o.st++; o.e += st[7]; if (st[1] === '1') o.w++; else if (st[1] === '2') o.p++; else if (st[1] === '3') o.s++; }
         return `<span><b>${ROLE[k]}</b> ${o.st}: ${o.w}-${o.p}-${o.s} · ${o.st ? Math.round(o.w / o.st * 100) : 0}% wins · ${money(o.e) || '$0'}</span>`; }).join('');
-      const rows = new Map();
-      for (const k of roles) for (const [hi, si] of p[k]) { const key = hi + ':' + si; const x = rows.get(key) || { hi, si, roles: [] }; x.roles.push(ROLE[k]); rows.set(key, x); }
-      const list = [...rows.values()].sort((a, b) => R[H[b.hi][10][b.si][0]][0] - R[H[a.hi][10][a.si][0]][0]);
-      const shown = state.lookAll ? list : list.slice(0, 200);
-      body = `<div class="pad"><div class="resinfo">${summ}</div>
-        <table class="pplines restab"><thead><tr><th>Date / Trk</th><th>Race</th><th>Horse</th><th>As</th><th>Fin</th><th class="n">Fld</th><th class="n">Wt</th><th>Rider</th><th>Trainer</th><th class="n">Earned</th></tr></thead><tbody>` +
-        shown.map(x => { const h = H[x.hi], st = h[10][x.si], r = R[st[0]];
-          return `<tr><td class="trk">${raceLink(st[0], fmtDate(r[0]) + ' ' + esc(C[r[1]][0]))}</td><td>${raceLink(st[0], 'R' + (r[2] || '?') + ' ' + esc(raceTitle(r) || ''))}</td><td>${horseLink(h[0], esc(h[1]))}</td><td>${x.roles.join(', ')}</td>
-            <td>${finCell(st, r)}</td><td class="n">${raceEnt[st[0]].length}</td><td class="n">${st[2] || ''}</td><td>${esc(V[st[3]] || '')}</td><td>${esc(V[st[5]] || '')}</td><td class="n">${st[7] ? money(st[7]) : ''}</td></tr>`; }).join('') +
-        `</tbody></table>${list.length > shown.length ? `<button class="btn small" data-lookall="1">Show all ${list.length}</button>` : ''}</div>`;
+      const m = new Map();
+      for (const k of roles) for (const [hi, si] of p[k]) { const key = hi + ':' + si; const x = m.get(key) || { hi, si, roles: [] }; x.roles.push(ROLE[k]); m.set(key, x); }
+      const rows = [...m.values()].map(x => { const h = H[x.hi], st = h[10][x.si]; return { h, st, r: R[st[0]], ri: st[0], roles: x.roles }; });
+      const cols = [
+        ['Date / Trk', x => x.r[0], x => `<td class="trk">${raceLink(x.ri, fmtDate(x.r[0]) + ' ' + esc(C[x.r[1]][0]))}</td>`],
+        ['Race', x => (raceTitle(x.r) || '').toLowerCase(), x => `<td>${raceLink(x.ri, 'R' + (x.r[2] || '?') + ' ' + esc(raceTitle(x.r) || ''))}</td>`],
+        ['Horse', x => x.h[1].toLowerCase(), x => `<td>${horseLink(x.h[0], esc(x.h[1]))}</td>`],
+        ['As', x => x.roles.join(), x => `<td>${x.roles.join(', ')}</td>`],
+        ['Fin', x => fin2num(x.st[1]), x => `<td>${finCell(x.st, x.r)}</td>`],
+        ['Fld', x => raceEnt[x.ri].length, x => `<td class="n">${raceEnt[x.ri].length}</td>`, 1],
+        ['Wt', x => x.st[2] || 0, x => `<td class="n">${x.st[2] || ''}</td>`, 1],
+        ['Rider', x => (V[x.st[3]] || '').toLowerCase(), x => `<td>${esc(V[x.st[3]] || '')}</td>`],
+        ['Trainer', x => (V[x.st[5]] || '').toLowerCase(), x => `<td>${esc(V[x.st[5]] || '')}</td>`],
+        ['Earned', x => x.st[7] || 0, x => `<td class="n">${x.st[7] ? money(x.st[7]) : ''}</td>`, 1],
+      ];
+      body = `<div class="pad"><div class="resinfo">${summ}</div>${sortTable(rows, cols, 200)}</div>`;
     } else if (L.t === 'race') {
       const set = L.cs ? new Set(L.cs) : null;
       const ids = []; R.forEach((r, i) => { if (set ? set.has(r[1]) && (L.no == null || r[2] === L.no) : raceTitle(r) === L.title) ids.push(i); });
-      ids.sort((a, b) => R[b][0] - R[a][0] || (R[a][2] || 0) - (R[b][2] || 0));
       head = esc(L.cs ? titleCase(L.q.replace(/[\s,]*(?:race|r)\s*#?\s*\d+$/i, '')) + (L.no ? ' · Race ' + L.no : ' · all races') : L.title);
-      const shown = state.lookAll ? ids : ids.slice(0, 300);
-      body = `<div class="pad"><div class="resinfo">${ids.length} race${ids.length === 1 ? '' : 's'} on record · click a race for the full result</div>
-        <table class="pplines restab"><thead><tr><th>Date</th><th>Meet</th><th>Race</th><th>Type</th><th>Dist</th><th>Going</th><th class="n">Ran</th><th>Winner</th><th class="n">Wt</th><th>Rider</th><th>Time</th></tr></thead><tbody>` +
-        shown.map(ri => { const r = R[ri], w = raceEnt[ri].find(e => e[1] === '1'), wh = w && H[w[0]], ws = wh && wh[10].find(x => x[0] === ri);
-          return `<tr><td class="trk">${raceLink(ri, fmtDate(r[0]))}</td><td>${esc(C[r[1]][1])}</td><td>${raceLink(ri, 'R' + (r[2] || '?') + ' ' + esc(raceTitle(r) || ''))}</td><td>${esc(KIND[r[6]] || '')}</td><td>${esc(V[r[9]] || '')}</td><td>${esc(r[11] || '')}</td><td class="n">${raceEnt[ri].length}</td>
-            <td>${wh ? horseLink(wh[0], esc(wh[1])) : '—'}</td><td class="n">${ws && ws[2] || ''}</td><td>${ws ? esc(V[ws[3]] || '') : ''}</td><td>${esc(r[12] || '')}</td></tr>`; }).join('') +
-        `</tbody></table>${ids.length > shown.length ? `<button class="btn small" data-lookall="1">Show all ${ids.length}</button>` : ''}</div>`;
+      const rows = ids.map(ri => { const r = R[ri], w = raceEnt[ri].find(e => e[1] === '1'), wh = w && H[w[0]], ws = wh && wh[10].find(x => x[0] === ri); return { ri, r, wh, ws }; });
+      const cols = [
+        ['Date', x => x.r[0] * 100 - (x.r[2] || 0), x => `<td class="trk">${raceLink(x.ri, fmtDate(x.r[0]))}</td>`],
+        ['Meet', x => (C[x.r[1]][1] || '').toLowerCase(), x => `<td>${esc(C[x.r[1]][1])}</td>`],
+        ['Race', x => x.r[2] || 0, x => `<td>${raceLink(x.ri, 'R' + (x.r[2] || '?') + ' ' + esc(raceTitle(x.r) || ''))}</td>`],
+        ['Type', x => KIND[x.r[6]] || '', x => `<td>${esc(KIND[x.r[6]] || '')}</td>`],
+        ['Dist', x => x.r[8] || 0, x => `<td>${esc(V[x.r[9]] || '')}</td>`],
+        ['Going', x => x.r[11] || '', x => `<td>${esc(x.r[11] || '')}</td>`],
+        ['Ran', x => raceEnt[x.ri].length, x => `<td class="n">${raceEnt[x.ri].length}</td>`, 1],
+        ['Winner', x => x.wh ? x.wh[1].toLowerCase() : '', x => `<td>${x.wh ? horseLink(x.wh[0], esc(x.wh[1])) : '—'}</td>`],
+        ['Wt', x => x.ws && x.ws[2] || 0, x => `<td class="n">${x.ws && x.ws[2] || ''}</td>`, 1],
+        ['Rider', x => x.ws ? (V[x.ws[3]] || '').toLowerCase() : '', x => `<td>${x.ws ? esc(V[x.ws[3]] || '') : ''}</td>`],
+        ['Time', x => x.r[13] || 1e9, x => `<td>${esc(x.r[12] || '')}</td>`],
+        ['Purse', x => x.r[16] || 0, x => `<td class="n">${x.r[16] ? money(x.r[16]) : ''}</td>`, 1],
+      ];
+      body = `<div class="pad"><div class="resinfo">${ids.length} race${ids.length === 1 ? '' : 's'} on record · click a race for the full result · click a column heading to sort</div>${sortTable(rows, cols, 300)}</div>`;
     }
   } finally { state.asOf = keepAs; }
   $('#notice').innerHTML = `<div class="racehead"><div><div class="t">${head}</div><div class="c">Database search</div></div><div class="par"><button class="btn small" data-closelook="1">Back to the race card</button></div></div>`;
   return `<div class="sheet">${body}</div>`;
 }
+// sortable table for search results: cols = [title, sortKey(row), cell(row), numeric?]; state.lookSort = {i, dir}
+function sortTable(rows, cols, cap) {
+  const S = state.lookSort || { i: 0, dir: -1 };
+  const kf = cols[S.i][1];
+  rows.sort((a, b) => { const x = kf(a), y = kf(b); const r = typeof x === 'string' ? x.localeCompare(y) : x - y; return S.dir * r || (cols[0][1](b) - cols[0][1](a)); });
+  const shown = state.lookAll ? rows : rows.slice(0, cap);
+  const th = cols.map((c, i) => `<th class="${c[3] ? 'n' : ''}" data-lsort="${i}" tabindex="0" aria-sort="${S.i === i ? (S.dir > 0 ? 'ascending' : 'descending') : 'none'}">${c[0]}${S.i === i ? (S.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('');
+  return `<table class="pplines restab sortable"><thead><tr>${th}</tr></thead><tbody>${shown.map(x => '<tr>' + cols.map(c => c[2](x)).join('') + '</tr>').join('')}</tbody></table>` +
+    (rows.length > shown.length ? `<button class="btn small" data-lookall="1">Show all ${rows.length}</button>` : '');
+}
 function wireDb() {
+  const lsort = th => { const i = +th.dataset.lsort, S = state.lookSort || { i: 0, dir: -1 }; state.lookSort = S.i === i ? { i, dir: -S.dir } : { i, dir: i === 0 ? -1 : 1 }; commit(); };
+  $('#view').addEventListener('click', e => { const th = e.target.closest('th[data-lsort]'); if (th) lsort(th); });
+  $('#view').addEventListener('keydown', e => { const th = e.target.closest('th[data-lsort]'); if (th && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); lsort(th); } });
   $('#dbq').addEventListener('input', e => dbSearch(e.target.value));
   $('#dbq').addEventListener('keydown', e => {
     const box = $('#dbres'); if (box.hidden || !dbHits.length) return;
