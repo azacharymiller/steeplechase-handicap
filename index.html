@@ -389,7 +389,8 @@ const GOING_GROUP = { fm: 'firm', hd: 'firm', fst: 'firm', gf: 'firm', gd: 'good
 const GOING_NAME = { firm: 'firm', good: 'good', soft: 'yielding / soft' };
 const ERR = new Set(['F', 'UR', 'LR', 'BD', 'RO', 'REF', 'R', 'BOL', 'B', 'DIS']);
 const SEX = { g: 'g', m: 'm', h: 'h', c: 'c', f: 'f', r: 'rig', s: 'h' };
-const DIST_OPTS = [ [0,'Any'], [4,'4f'], [6,'6f'], [8,'1 mile'], [10,'1¼'], [12,'1½'], [14,'1¾'], [15,'1⅞'], [16,'2 miles'], [16.5,'2 1/16'], [17,'2⅛'], [18,'2¼'], [19,'2⅜'], [20,'2½'], [21,'2⅝'], [22,'2¾'], [24,'3 miles'], [25,'3⅛'], [26,'3¼'], [28,'3½'], [30,'3¾'], [32,'4 miles'] ];
+const furl = f => { const w = Math.floor(f), q = Math.round((f - w) * 8) / 8; return w + ({0.125: '⅛', 0.25: '¼', 0.375: '⅜', 0.5: '½', 0.625: '⅝', 0.75: '¾', 0.875: '⅞'}[q] || '') + 'f'; };  // distances in furlongs
+const DIST_OPTS = [ [0,'Any'], [4,'4f'], [6,'6f'], [8,'8f'], [10,'10f'], [12,'12f'], [14,'14f'], [15,'15f'], [16,'16f'], [16.5,'16½f'], [17,'17f'], [18,'18f'], [19,'19f'], [20,'20f'], [21,'21f'], [22,'22f'], [24,'24f'], [25,'25f'], [26,'26f'], [28,'28f'], [30,'30f'], [32,'32f'] ];
 
 let D = null;               // payload
 let R, V, H, C;             // races, vocab, horses, courses
@@ -443,7 +444,7 @@ function histCard(ri) {
   }).sort((a, b) => a.name.localeCompare(b.name));        // program numbers aren't in the charts: listed A-Z, not in finish order
   ents.forEach((e, k) => { e.pp = String(k + 1); });
   const x = { c: { id: 'hist', meet: C[r[1]][1], date: r[0], status: 'result', source: 'Archive', course: r[1] },
-              r: { no: r[2], div: 0, post: '', name: raceTitle(r), type: V[r[4]] !== raceTitle(r) ? V[r[4]] : '', purse: r[16], dist: V[r[10]] || V[r[9]],
+              r: { no: r[2], div: 0, post: '', name: raceTitle(r), type: V[r[4]] !== raceTitle(r) ? V[r[4]] : '', purse: r[16], dist: V[r[9]] || V[r[10]],
                    surface: KIND[r[6]] || '', conditions: '', f: r[8], sc: r[7], entries: ents, hist: ri } };
   histCache.set(ri, x); return x;
 }
@@ -689,7 +690,7 @@ function renderRaceHead() { return;
   const c = state.course >= 0 ? C[state.course] : null;
   const dl = (DIST_OPTS.find(o => o[0] === +$('#dist').value) || [0, ''])[1];
   const bits = [];
-  if (state.kind) bits.push(KIND[state.kind]); if (state.furlongs) bits.push(/mile/.test(dl) ? dl : dl + (state.furlongs >= 8 ? ' miles' : ''));
+  if (state.kind) bits.push(KIND[state.kind]); if (state.furlongs) bits.push(dl);
   if (state.going) bits.push('going ' + GOING_NAME[state.going]);
   const k = c && state.kind && state.furlongs ? parKey(state.course, state.kind === 'H' ? 'H' : state.kind === 'F' ? 'F' : 'T', state.furlongs) : null;
   const p = k && par.get(k);
@@ -1026,7 +1027,7 @@ function render() {
   const x = entryCtx();
   $('#notice').innerHTML = x ? `<div class="racehead"><div>
       <div class="t">${esc(x.c.meet)} · ${fmtDate(x.c.date)} · Race ${x.r.no}${x.r.div ? ' div ' + x.r.div : ''}${x.r.post ? ' · ' + esc(x.r.post) : ''}</div>
-      <div class="c">${[x.r.name, x.r.type && x.r.type !== x.r.name ? x.r.type : '', x.r.purse ? money(x.r.purse) : '', [x.r.dist, x.r.surface].filter(Boolean).join(' ')].filter(Boolean).map(esc).join(' · ')}</div>
+      <div class="c">${[x.r.name, x.r.type && x.r.type !== x.r.name ? x.r.type : '', x.r.purse ? money(x.r.purse) : '', [x.r.f ? furl(x.r.f) : x.r.dist, x.r.surface].filter(Boolean).join(' ')].filter(Boolean).map(esc).join(' · ')}</div>
       ${x.r.conditions ? `<div class="cond">${esc(x.r.conditions)}</div>` : ''}
       ${parSummary(x.c.course, x.r.sc, x.r.f, x.r.hist != null ? goingOf(R[x.r.hist]) : '')}
       ${x.r.hist != null ? histResult(x.r.hist) : ''}</div>
