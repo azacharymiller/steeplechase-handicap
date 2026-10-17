@@ -715,7 +715,7 @@ function search(q) {
 let PEOPLE = null;   // vocab index -> { n: name, r: [rider starts], t: [...], o: [...] }; a start = [horseIdx, startIdx]
 function buildPeople() {
   if (PEOPLE) return; PEOPLE = new Map();
-  const add = (v, k, x) => { if (!v) return; let p = PEOPLE.get(v); if (!p) PEOPLE.set(v, p = { n: V[v], r: [], t: [], o: [] }); p[k].push(x); };
+  const add = (v, k, x) => { if (!v) return; let p = PEOPLE.get(v); if (!p) PEOPLE.set(v, p = { v, n: V[v], r: [], t: [], o: [] }); p[k].push(x); };
   H.forEach((h, hi) => h[10].forEach((st, si) => { add(st[3], 'r', [hi, si]); add(st[5], 't', [hi, si]); add(st[6], 'o', [hi, si]); }));
   // all-time rankings by races won, per role (ties: fewer starts ranks higher)
   PEOPLE_N = {};
@@ -729,9 +729,9 @@ function buildPeople() {
   }
 }
 let PEOPLE_N = {};
-function personHead(p, rows) {
-  const roles = ['r', 't', 'o'].filter(k => p[k].length);
-  const main = roles.slice().sort((a, b) => p[b].length - p[a].length)[0];
+function personHead(p, rows, main) {
+  const roles = [main];
+  const others = ['r', 't', 'o'].filter(k => k !== main && p[k].length);
   const st = rows.map(x => x.st), rr = rows.map(x => x.r);
   const recOfRows = pred => { const o = { st: 0, w: 0, p: 0, s: 0, e: 0 }; rows.forEach(x => { if (pred && !pred(x)) return; o.st++; o.e += x.st[7]; if (x.st[1] === '1') o.w++; else if (x.st[1] === '2') o.p++; else if (x.st[1] === '3') o.s++; }); return o; };
   const yrs = rows.map(x => Math.floor(x.r[0] / 10000)), y1 = Math.max(...yrs), y0 = Math.min(...yrs);
@@ -740,22 +740,22 @@ function personHead(p, rows) {
   recRows.push([String(y1), recOfRows(x => Math.floor(x.r[0] / 10000) === y1), false]);
   if (y1 - 1 >= y0) recRows.push([String(y1 - 1), recOfRows(x => Math.floor(x.r[0] / 10000) === y1 - 1), false]);
   ['T', 'H', 'F'].forEach((k, i) => recRows.push([KIND[k], recOfRows(x => x.r[6] === k), i === 0]));
-  if (roles.length > 1) roles.forEach((k, i) => recRows.push([ROLE[k], recOfRows(x => x.roles.includes(ROLE[k])), i === 0]));
   ['firm', 'good', 'soft'].forEach((g, i) => recRows.push([g === 'soft' ? 'Yld/Sft' : g[0].toUpperCase() + g.slice(1), recOfRows(x => goingOf(x.r) === g), i === 0]));
   const recbox = `<table class="recbox" aria-label="Record">${recRows.map(([l, o, sep]) => `<tr class="${sep ? 'sep' : ''}"><td>${esc(l)}</td><td>${o.st}</td><td>${o.w}</td><td>${o.p}</td><td>${o.s}</td><td>${money(o.e) || '$0'}</td></tr>`).join('')}</table>`;
   // quick stats
   const tally = (f) => { const m = new Map(); rows.forEach(x => { if (x.st[1] !== '1') return; const k = f(x); m.set(k, (m.get(k) || 0) + 1); }); return [...m].sort((a, b) => b[1] - a[1])[0]; };
   const topHorse = tally(x => x.h[1]), topCourse = tally(x => C[x.r[1]][1]);
   const bigWin = rows.filter(x => x.st[1] === '1').sort((a, b) => (b.r[16] || 0) - (a.r[16] || 0))[0];
-  const ranks = roles.filter(k => p['w' + k] || k === main).map(k => `<b>#${p['rk' + k].toLocaleString()}</b> of ${PEOPLE_N[k].toLocaleString()} ${ROLE[k].toLowerCase()}s (${p['w' + k]} win${p['w' + k] === 1 ? '' : 's'})`).join(' · ');
+  const ranks = `<b>#${p['rk' + main].toLocaleString()}</b> of ${PEOPLE_N[main].toLocaleString()} ${ROLE[main].toLowerCase()}s (${p['w' + main]} win${p['w' + main] === 1 ? '' : 's'})`;
+  const also = others.map(k => `<button class="hlink" data-person="${p.v}" data-role="${k}">${ROLE[k].toLowerCase()} (${p[k].length} start${p[k].length === 1 ? '' : 's'})</button>`).join(', ');
   const best = bigWin ? `${horseLink(bigWin.h[0], esc(bigWin.h[1]))}, ${raceLink(bigWin.ri, esc(raceTitle(bigWin.r) || 'R' + bigWin.r[2]))} ${fmtDate(bigWin.r[0])}${bigWin.r[16] ? ' (' + money(bigWin.r[16]) + ')' : ''}` : '';
   return `<article class="pp person"><div class="pp-head">
       <div><span class="rankbadge" title="All-time ranking by races won as ${ROLE[main].toLowerCase()}">#${p['rk' + main]}</span></div>
       <div><div class="pp-name">${esc(p.n)}</div>
         <div class="pp-id">
-          <div>${roles.map(k => ROLE[k]).join(' · ')} · ${y0 === y1 ? y0 : y0 + '–' + y1}</div>
+          <div>${ROLE[main]} · ${y0 === y1 ? y0 : y0 + '–' + y1}${also ? ` · <span class="k">also on record as</span> ${also}` : ''}</div>
           <div><b>${life.st.toLocaleString()}</b> starts · <b>${life.w}</b> wins (${life.st ? Math.round(life.w / life.st * 100) : 0}%) · ${life.st ? Math.round((life.w + life.p + life.s) / life.st * 100) : 0}% in the money · <b>${money(life.e) || '$0'}</b></div>
-          <div><span class="k">All-time rank by wins:</span> ${ranks}</div>
+          <div><span class="k">All-time rank by wins as ${ROLE[main].toLowerCase()}:</span> ${ranks}</div>
           ${topHorse ? `<div><span class="k">Most wins with:</span> ${esc(topHorse[0])} (${topHorse[1]})</div>` : ''}
           ${topCourse ? `<div><span class="k">Most wins at:</span> ${esc(topCourse[0])} (${topCourse[1]})</div>` : ''}
           ${best ? `<div><span class="k">Richest win:</span> ${best}</div>` : ''}
@@ -801,7 +801,9 @@ function dbSearch(q) {
   hs.slice(0, 5).forEach(i => out.push({ t: 'horse', label: H[i][1], sub: `Horse · ${years(H[i])} · ${H[i][10].length} starts`, look: { t: 'horse', id: H[i][0] } }));
   const ps = []; for (const [v, p] of PEOPLE) if (p.n && p.n.toLowerCase().includes(lq)) ps.push([v, p]);
   ps.sort((a, b) => (b[1].n.toLowerCase().startsWith(lq) - a[1].n.toLowerCase().startsWith(lq)) || ((b[1].r.length + b[1].t.length + b[1].o.length) - (a[1].r.length + a[1].t.length + a[1].o.length)));
-  ps.slice(0, 6).forEach(([v, p]) => out.push({ t: 'person', label: p.n, sub: ['r', 't', 'o'].filter(k => p[k].length).map(k => `${ROLE[k]} ${p[k].length}`).join(' · '), look: { t: 'person', v } }));
+  const pr = [];
+  ps.slice(0, 8).forEach(([v, p]) => ['r', 't', 'o'].forEach(k => { if (p[k].length) pr.push({ t: 'person', label: `${p.n} — ${ROLE[k]}`, sub: `${ROLE[k]} · ${p[k].length} starts · ${p['w' + k]} wins · all-time #${p['rk' + k]}`, look: { t: 'person', v, k }, n: p[k].length }); }));
+  out.push(...pr.slice(0, 8));
   out.push(...raceQuery(q));
   dbHits = out; dbOn = 0;
   box.innerHTML = out.length ? out.map((x, k) => `<button type="button" data-db="${k}" class="${k === 0 ? 'on' : ''}"><span class="nm">${esc(x.label)}</span><span class="sub">${esc(x.sub)}</span></button>`).join('')
@@ -828,8 +830,9 @@ function renderLook() {
       head = `Horse · ${esc(H[hi][1])}`;
       body = `<div class="lookbar">${state.horses.includes(L.id) ? '' : `<button class="btn small" data-add="${L.id}">Add to the field</button>`}</div>` + ppBlock(L.id, Math.max(0, state.horses.indexOf(L.id)));
     } else if (L.t === 'person') {
-      const p = PEOPLE.get(L.v); head = `${esc(p.n)}`;
-      const roles = ['r', 't', 'o'].filter(k => p[k].length);
+      const p = PEOPLE.get(L.v), K = L.k || ['r', 't', 'o'].filter(k => p[k].length).sort((a, b) => p[b].length - p[a].length)[0];
+      head = `${esc(p.n)} · ${ROLE[K]}`;
+      const roles = [K];
       const summ = roles.map(k => { const o = { st: 0, w: 0, p: 0, s: 0, e: 0 }; for (const [hi, si] of p[k]) { const st = H[hi][10][si]; o.st++; o.e += st[7]; if (st[1] === '1') o.w++; else if (st[1] === '2') o.p++; else if (st[1] === '3') o.s++; }
         return `<span><b>${ROLE[k]}</b> ${o.st}: ${o.w}-${o.p}-${o.s} · ${o.st ? Math.round(o.w / o.st * 100) : 0}% wins · ${money(o.e) || '$0'}</span>`; }).join('');
       const m = new Map();
@@ -839,7 +842,6 @@ function renderLook() {
         ['Date / Trk', x => x.r[0], x => `<td class="trk">${raceLink(x.ri, fmtDate(x.r[0]) + ' ' + esc(C[x.r[1]][0]))}</td>`],
         ['Race', x => (raceTitle(x.r) || '').toLowerCase(), x => `<td>${raceLink(x.ri, 'R' + (x.r[2] || '?') + ' ' + esc(raceTitle(x.r) || ''))}</td>`],
         ['Horse', x => x.h[1].toLowerCase(), x => `<td>${horseLink(x.h[0], esc(x.h[1]))}</td>`],
-        ['As', x => x.roles.join(), x => `<td>${x.roles.join(', ')}</td>`],
         ['Fin', x => fin2num(x.st[1]), x => `<td>${finCell(x.st, x.r)}</td>`],
         ['Fld', x => raceEnt[x.ri].length, x => `<td class="n">${raceEnt[x.ri].length}</td>`, 1],
         ['Wt', x => x.st[2] || 0, x => `<td class="n">${x.st[2] || ''}</td>`, 1],
@@ -847,7 +849,7 @@ function renderLook() {
         ['Trainer', x => (V[x.st[5]] || '').toLowerCase(), x => `<td>${esc(V[x.st[5]] || '')}</td>`],
         ['Earned', x => x.st[7] || 0, x => `<td class="n">${x.st[7] ? money(x.st[7]) : ''}</td>`, 1],
       ];
-      body = personHead(p, rows) + `<div class="pad">${sortTable(rows, cols, 200)}</div>`;
+      body = personHead(p, rows, K) + `<div class="pad">${sortTable(rows, cols, 200)}</div>`;
     } else if (L.t === 'race') {
       const set = L.cs ? new Set(L.cs) : null;
       const ids = []; R.forEach((r, i) => { if (set ? set.has(r[1]) && (L.no == null || r[2] === L.no) : raceTitle(r) === L.title) ids.push(i); });
@@ -898,8 +900,9 @@ function wireDb() {
   $('#dbres').addEventListener('click', e => { const b = e.target.closest('button[data-db]'); if (b) openLook(dbHits[+b.dataset.db].look); });
   document.addEventListener('click', e => {
     if (!e.target.closest('.dbsearch')) $('#dbres').hidden = true;
-    const t = e.target.closest('[data-race],[data-look-horse],[data-closelook],[data-lookall],[data-add]'); if (!t) return;
-    if (t.dataset.race) openPastRace(+t.dataset.race);
+    const t = e.target.closest('[data-race],[data-look-horse],[data-closelook],[data-lookall],[data-add],[data-person]'); if (!t) return;
+    if (t.dataset.person) openLook({ t: 'person', v: +t.dataset.person, k: t.dataset.role });
+    else if (t.dataset.race) openPastRace(+t.dataset.race);
     else if (t.dataset.lookHorse) openLook({ t: 'horse', id: +t.dataset.lookHorse });
     else if (t.dataset.closelook) { state.look = null; commit(); }
     else if (t.dataset.lookall) { state.lookAll = true; commit(); }
