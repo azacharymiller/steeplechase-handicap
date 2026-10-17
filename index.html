@@ -138,8 +138,8 @@ select, input[type="text"], input[type="date"], input[type="search"] {
 .racehead .avg { font-size: 12.5px; margin-top: 4px; }
 .racehead .avg mark { background: var(--hilite); color: var(--hilite-ink); padding: 0 3px; }
 table.restab td { vertical-align: top; }
-table.restab .hlink { all: unset; cursor: pointer; font-weight: 700; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
-table.restab .hlink:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#view .hlink { all: unset; cursor: pointer; font-weight: 700; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+#view .hlink:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 table.restab td.l .s { display: block; font-size: 11px; color: var(--muted); }
 table.restab td.cmt { white-space: normal; min-width: 220px; font-size: 12px; color: var(--muted); }
 table.restab tr.open td { background: var(--hl, rgba(0,0,0,.04)); }
@@ -747,7 +747,7 @@ function personHead(p, rows) {
   const tally = (f) => { const m = new Map(); rows.forEach(x => { if (x.st[1] !== '1') return; const k = f(x); m.set(k, (m.get(k) || 0) + 1); }); return [...m].sort((a, b) => b[1] - a[1])[0]; };
   const topHorse = tally(x => x.h[1]), topCourse = tally(x => C[x.r[1]][1]);
   const bigWin = rows.filter(x => x.st[1] === '1').sort((a, b) => (b.r[16] || 0) - (a.r[16] || 0))[0];
-  const ranks = roles.map(k => `<b>#${p['rk' + k].toLocaleString()}</b> of ${PEOPLE_N[k].toLocaleString()} ${ROLE[k].toLowerCase()}s (${p['w' + k]} wins)`).join(' · ');
+  const ranks = roles.filter(k => p['w' + k] || k === main).map(k => `<b>#${p['rk' + k].toLocaleString()}</b> of ${PEOPLE_N[k].toLocaleString()} ${ROLE[k].toLowerCase()}s (${p['w' + k]} win${p['w' + k] === 1 ? '' : 's'})`).join(' · ');
   const best = bigWin ? `${horseLink(bigWin.h[0], esc(bigWin.h[1]))}, ${raceLink(bigWin.ri, esc(raceTitle(bigWin.r) || 'R' + bigWin.r[2]))} ${fmtDate(bigWin.r[0])}${bigWin.r[16] ? ' (' + money(bigWin.r[16]) + ')' : ''}` : '';
   return `<article class="pp person"><div class="pp-head">
       <div><span class="rankbadge" title="All-time ranking by races won as ${ROLE[main].toLowerCase()}">#${p['rk' + main]}</span></div>
