@@ -374,7 +374,7 @@ footer.colophon {
 </main>
 
 <footer class="colophon">
-  Data: American Point-to-Point and NSA steeplechase results, 1966 to date. Irish point-to-point form courtesy of <a href="https://p2p.ie/" target="_blank" rel="noopener">p2p.ie</a>; British point-to-point form courtesy of <a href="https://gbpointing.co.uk/" target="_blank" rel="noopener">GB Pointing</a>. <b>Win Mgn</b> is the winner's margin over the second horse, the only margin the charts record; beaten lengths for other finishers are not recorded. <b>Par±</b> compares a race's winning time with the average winning time for the same course, type and distance (three or more races needed); minus is faster.
+  Data: American Point-to-Point and NSA steeplechase results, 1966 to date. Irish point-to-point form courtesy of <a href="https://p2p.ie/" target="_blank" rel="noopener">p2p.ie</a>; British point-to-point form courtesy of <a href="https://gbpointing.co.uk/" target="_blank" rel="noopener">GB Pointing</a>; British, Irish and French track form courtesy of <a href="https://www.attheraces.com/" target="_blank" rel="noopener">At The Races</a>. <b>Win Mgn</b> is the winner's margin over the second horse, the only margin the charts record; beaten lengths for other finishers are not recorded. <b>Par±</b> compares a race's winning time with the average winning time for the same course, type and distance (three or more races needed); minus is faster.
 </footer>
 
 <script>
@@ -807,6 +807,7 @@ function ppBlock(id, pos) {
       <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th>Time</th><th class="n" title="Winning time against course par, seconds">Par±</th><th>Class</th><th class="n" title="Starters">Fld</th><th>Fin</th><th class="n" title="Winning margin: the winner's margin over the second horse, in lengths">Win Mgn</th><th>Jockey</th><th class="n">Wt</th><th class="n" title="Earnings">Earn</th><th>Order of finish</th></tr></thead>
       <tbody>${body || `<tr><td colspan="13" class="muted">No ${KIND[state.lineFilter] ? KIND[state.lineFilter].toLowerCase() + ' ' : ''}starts on record.</td></tr>`}</tbody></table></div>`}
     ${flatSection(h, hi)}
+    ${trackSection(h)}
     ${pointSection(h, 'irish', 'Irish point-to-point form', 'p2p.ie')}
     ${pointSection(h, 'british', 'British point-to-point form', 'GB Pointing')}
     <div class="pp-foot">${lastLine}${more > 0 ? ` · ${more} earlier start${more > 1 ? 's' : ''} not shown` : ''}</div>
@@ -840,6 +841,32 @@ function flatSection(h, hi) {
     <div class="lines"><table class="pplines">
     <thead><tr><th>Date / Trk</th><th>Cond</th><th>Dist</th><th>Class</th><th class="n" title="Starters">Fld</th><th title="Finish, superscript = lengths beaten (winner: margin)">Fin</th><th class="n" title="Equibase speed figure">Fig</th><th>Jockey</th><th class="n">Wt</th><th class="n">Earn</th><th>Trainer</th></tr></thead>
     <tbody>${rows}</tbody></table></div>${years}`;
+}
+// British, Irish & French races under Rules (At The Races): facts only, our own table, credited and linked.
+function trackSection(h) {
+  const x = D.track && D.track[h[0]]; if (!x) return '';
+  const runs = x[1].filter(l => !state.asOf || l[0] < state.asOf); if (!runs.length) return '';
+  const shown = runs.slice(0, state.nLines), more = runs.length - shown.length;
+  const wins = runs.filter(l => l[8] === '1').length;
+  const rows = shown.map(l => {
+    const win = l[8] === '1';
+    const res = win ? (l[10] ? `by ${esc(l[11] || '?')} from ${esc(l[10])}` : '') : (l[10] ? `${esc(l[10])} won${l[11] ? ` · btn ${esc(l[11])}` : ''}` : '');
+    return `<tr>
+      <td class="trk">${fmtDate(l[0])} ${esc(l[1])}</td>
+      <td>${esc(l[3] || '—')}</td>
+      <td>${esc(l[2])}</td>
+      <td>${esc(l[4])}${l[5] ? ' ' + esc(l[5]) : ''}</td>
+      <td class="n">${esc(l[6] || '')}</td>
+      <td class="n">${esc(l[7] || '')}</td>
+      <td><span class="fin${win ? ' win' : ''}">${esc(l[8] || '—')}</span>${l[9] ? '/' + l[9] : ''}</td>
+      <td class="ofin">${res}</td>
+      <td>${esc(l[12] || '')}</td>
+      <td>${esc(riderShort(l[13] || ''))}</td></tr>`;
+  }).join('');
+  return `<div class="flathead"><b>British, Irish &amp; French form</b><span>${runs.length} run${runs.length > 1 ? 's' : ''} under Rules, ${wins} win${wins === 1 ? '' : 's'} · results courtesy of <a href="${esc(x[0])}" target="_blank" rel="noopener">At The Races</a>${more > 0 ? ` · ${more} more not shown` : ''}</span></div>
+    <div class="lines"><table class="pplines">
+    <thead><tr><th>Date / Course</th><th>Going</th><th>Dist</th><th>Race</th><th class="n" title="Weight carried, stones-pounds">Wt</th><th class="n" title="Official rating">OR</th><th>Fin</th><th>Result</th><th>SP</th><th>Jockey</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
 }
 // British and Irish point-to-point form: facts only (no running comments, no proprietary ratings), in our
 // own table, credited and linked to GB Pointing / p2p.ie. Nothing from behind either site's paywall.
