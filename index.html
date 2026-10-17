@@ -144,7 +144,10 @@ table.restab td.l .s { display: block; font-size: 11px; color: var(--muted); }
 table.restab td.cmt { white-space: normal; min-width: 220px; font-size: 12px; color: var(--muted); }
 table.restab tr.open td { background: var(--hl, rgba(0,0,0,.04)); }
 table.restab tr.ppopen > td { padding: 8px 0 14px; background: transparent; white-space: normal; }
-.resinfo { font-size: 13px; margin: 2px 0 10px; }
+.resinfo { font-size: 13px; margin: 2px 0 10px; display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.panel .hint { font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+.lookbar { display: flex; justify-content: flex-end; padding: 8px 10px 0; }
+table.restab td .hlink { white-space: nowrap; }
 .racehead .result { font-size: 12px; margin-top: 5px; color: var(--muted); }
 .racehead .result summary { cursor: pointer; color: var(--accent); font-weight: 700; }
 .racehead .cond { font-size: 12px; color: var(--muted); margin-top: 3px; max-width: 80ch; }
@@ -345,23 +348,13 @@ footer.colophon {
       </div>
     </section>
 
-    <section class="panel" aria-labelledby="h-saved">
-      <h2 id="h-saved">Saved cards</h2>
-      <div class="row">
-        <input type="text" id="cardName" placeholder="Card name, e.g. Far Hills R4" style="flex:1">
-        <button class="btn primary small" id="saveCard" type="button">Save</button>
+    <section class="panel" aria-labelledby="h-db">
+      <h2 id="h-db">Database search</h2>
+      <div class="search dbsearch">
+        <input type="search" id="dbq" placeholder="Horse, rider, trainer, owner or race" autocomplete="off" aria-label="Search the database" aria-controls="dbres">
+        <div class="results" id="dbres" hidden></div>
       </div>
-      <div class="row">
-        <select id="savedCards" style="flex:1" aria-label="Saved cards"></select>
-        <button class="btn small" id="loadCard" type="button">Open</button>
-        <button class="btn small ghost" id="delCard" type="button">Delete</button>
-      </div>
-      <div class="row" id="delConfirm" hidden>
-        <span style="font-size:12.5px">Delete this saved card?</span>
-        <button class="btn small" id="delYes" type="button">Delete</button>
-        <button class="btn small ghost" id="delNo" type="button">Keep</button>
-      </div>
-      <button class="btn small" id="copyLink" type="button">Copy link to this card</button>
+      <div class="hint">e.g. <i>Lynches Knock</i> · <i>Jack Kennedy</i> · <i>Middleburg Race 1</i> · <i>Maryland Hunt Cup</i></div>
     </section>
   </aside>
 
@@ -591,15 +584,17 @@ function targetDate() { if (state.asOf) return state.asOf; if (isoToInt(state.da
 function addHorse(id) {
   if (state.horses.includes(id)) { toast('Already in the field'); return; }
   if (state.horses.length >= 20) { toast('A field is limited to 20 horses'); return; }
-  state.horses.push(id); state.example = null; commit();
+  state.horses.push(id); state.example = null; state.look = null; commit();
 }
 function loadRaceField(i) {
+  state.look = null;
   state.pick = null;
   state.entry = { card: 'hist', race: i }; state.asOf = R[i][0];
   state.horses = histCard(i).r.entries.map(e => e.hid);
   state.example = null; commit();
 }
 function loadEntryRace(cardId, ri) {
+  state.look = null;
   state.pick = null;
   const c = (D.cards || []).find(x => x.id === cardId); if (!c) return;
   const r = c.races[ri];
@@ -710,6 +705,122 @@ function search(q) {
       <span class="sub">${years(h)} · ${h[10].length} starts · ${recTxt(rec(h)).replace(/^\d+ /, '')}${h[6] ? ' · ' + esc(h[6]) + ' – ' + esc(h[7] || '?') : ''}</span></button>`;
   }).join('') : '<div class="empty">No horse by that name in the archive.</div>';
   box.hidden = false;
+}
+
+// ---------------------------------------------------------------- database search (horses, people, races)
+let PEOPLE = null;   // vocab index -> { n: name, r: [rider starts], t: [...], o: [...] }; a start = [horseIdx, startIdx]
+function buildPeople() {
+  if (PEOPLE) return; PEOPLE = new Map();
+  const add = (v, k, x) => { if (!v) return; let p = PEOPLE.get(v); if (!p) PEOPLE.set(v, p = { n: V[v], r: [], t: [], o: [] }); p[k].push(x); };
+  H.forEach((h, hi) => h[10].forEach((st, si) => { add(st[3], 'r', [hi, si]); add(st[5], 't', [hi, si]); add(st[6], 'o', [hi, si]); }));
+}
+const ROLE = { r: 'Rider', t: 'Trainer', o: 'Owner' };
+let dbHits = [], dbOn = 0;
+function raceQuery(q) {
+  const m = q.match(/^(.*?)[\s,]*(?:race|r)\s*#?\s*(\d{1,2})$/i);
+  const meet = (m ? m[1] : q).trim().toLowerCase(), no = m ? +m[2] : null;
+  if (meet.length < 3) return [];
+  const cs = []; C.forEach((c, i) => { if ((c[1] || '').toLowerCase().includes(meet) || (c[0] || '').toLowerCase() === meet) cs.push(i); });
+  const out = [];
+  if (cs.length) {
+    const set = new Set(cs); let n = 0; R.forEach(r => { if (set.has(r[1]) && (no == null || r[2] === no)) n++; });
+    if (n) out.push({ t: 'race', label: `${titleCase(meet)}${no ? ' · Race ' + no : ' · all races'}`, sub: `${n} race${n > 1 ? 's' : ''} at ${cs.length} meet name${cs.length > 1 ? 's' : ''}`, look: { t: 'race', cs, no, q } });
+  }
+  if (!no) {   // race names, e.g. "Maryland Hunt Cup"
+    const names = new Map();
+    R.forEach(r => { const t = raceTitle(r); if (t && t.toLowerCase().includes(meet)) names.set(t, (names.get(t) || 0) + 1); });
+    [...names].sort((a, b) => b[1] - a[1]).slice(0, 4).forEach(([t, n]) => out.push({ t: 'race', label: t, sub: `race name · ${n} running${n > 1 ? 's' : ''}`, look: { t: 'race', title: t, q: t } }));
+  }
+  return out;
+}
+const titleCase = s => s.replace(/\b\w/g, c => c.toUpperCase());
+function dbSearch(q) {
+  q = q.trim(); const box = $('#dbres'), lq = q.toLowerCase();
+  if (lq.length < 2) { box.hidden = true; return; }
+  buildPeople();
+  const out = [];
+  const hs = []; for (let i = 0; i < lowerNames.length && hs.length < 60; i++) if (H[i][0] >= 0 && lowerNames[i].includes(lq)) hs.push(i);
+  hs.sort((a, b) => (lowerNames[b].startsWith(lq) - lowerNames[a].startsWith(lq)) || (b10(b) - b10(a)));
+  hs.slice(0, 5).forEach(i => out.push({ t: 'horse', label: H[i][1], sub: `Horse · ${years(H[i])} · ${H[i][10].length} starts`, look: { t: 'horse', id: H[i][0] } }));
+  const ps = []; for (const [v, p] of PEOPLE) if (p.n && p.n.toLowerCase().includes(lq)) ps.push([v, p]);
+  ps.sort((a, b) => (b[1].n.toLowerCase().startsWith(lq) - a[1].n.toLowerCase().startsWith(lq)) || ((b[1].r.length + b[1].t.length + b[1].o.length) - (a[1].r.length + a[1].t.length + a[1].o.length)));
+  ps.slice(0, 6).forEach(([v, p]) => out.push({ t: 'person', label: p.n, sub: ['r', 't', 'o'].filter(k => p[k].length).map(k => `${ROLE[k]} ${p[k].length}`).join(' · '), look: { t: 'person', v } }));
+  out.push(...raceQuery(q));
+  dbHits = out; dbOn = 0;
+  box.innerHTML = out.length ? out.map((x, k) => `<button type="button" data-db="${k}" class="${k === 0 ? 'on' : ''}"><span class="nm">${esc(x.label)}</span><span class="sub">${esc(x.sub)}</span></button>`).join('')
+    : '<div class="empty">Nothing in the database matches that.</div>';
+  box.hidden = false;
+}
+const b10 = i => H[i][10].length ? R[H[i][10][0][0]][0] : 0;
+function openLook(look) { state.look = look; state.lookAll = false; $('#dbres').hidden = true; commit(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function openPastRace(ri) {
+  state.look = null; state.tab = 'pp';
+  const y = String(Math.floor(R[ri][0] / 10000)); const sel = $('#season');
+  if ([...sel.options].some(o => o.value === y)) { sel.value = y; fillRaceCards(); }
+  rcSel = 'hist|' + ri; $('#rcText').textContent = `R${R[ri][2] || '?'} · ${raceTitle(R[ri])}`;
+  loadRaceField(ri);
+}
+const raceLink = (ri, txt) => `<button class="hlink" data-race="${ri}">${txt}</button>`;
+const horseLink = (id, txt) => `<button class="hlink" data-look-horse="${id}">${txt}</button>`;
+function renderLook() {
+  const L = state.look, keepAs = state.asOf; state.asOf = null;
+  let head = '', body = '';
+  try {
+    if (L.t === 'horse') {
+      const hi = byId.get(L.id); if (hi == null) return '';
+      head = `Horse · ${esc(H[hi][1])}`;
+      body = `<div class="lookbar">${state.horses.includes(L.id) ? '' : `<button class="btn small" data-add="${L.id}">Add to the field</button>`}</div>` + ppBlock(L.id, Math.max(0, state.horses.indexOf(L.id)));
+    } else if (L.t === 'person') {
+      const p = PEOPLE.get(L.v); head = `${esc(p.n)}`;
+      const roles = ['r', 't', 'o'].filter(k => p[k].length);
+      const summ = roles.map(k => { const o = { st: 0, w: 0, p: 0, s: 0, e: 0 }; for (const [hi, si] of p[k]) { const st = H[hi][10][si]; o.st++; o.e += st[7]; if (st[1] === '1') o.w++; else if (st[1] === '2') o.p++; else if (st[1] === '3') o.s++; }
+        return `<span><b>${ROLE[k]}</b> ${o.st}: ${o.w}-${o.p}-${o.s} · ${o.st ? Math.round(o.w / o.st * 100) : 0}% wins · ${money(o.e) || '$0'}</span>`; }).join('');
+      const rows = new Map();
+      for (const k of roles) for (const [hi, si] of p[k]) { const key = hi + ':' + si; const x = rows.get(key) || { hi, si, roles: [] }; x.roles.push(ROLE[k]); rows.set(key, x); }
+      const list = [...rows.values()].sort((a, b) => R[H[b.hi][10][b.si][0]][0] - R[H[a.hi][10][a.si][0]][0]);
+      const shown = state.lookAll ? list : list.slice(0, 200);
+      body = `<div class="pad"><div class="resinfo">${summ}</div>
+        <table class="pplines restab"><thead><tr><th>Date / Trk</th><th>Race</th><th>Horse</th><th>As</th><th>Fin</th><th class="n">Fld</th><th class="n">Wt</th><th>Rider</th><th>Trainer</th><th class="n">Earned</th></tr></thead><tbody>` +
+        shown.map(x => { const h = H[x.hi], st = h[10][x.si], r = R[st[0]];
+          return `<tr><td class="trk">${raceLink(st[0], fmtDate(r[0]) + ' ' + esc(C[r[1]][0]))}</td><td>${raceLink(st[0], 'R' + (r[2] || '?') + ' ' + esc(raceTitle(r) || ''))}</td><td>${horseLink(h[0], esc(h[1]))}</td><td>${x.roles.join(', ')}</td>
+            <td>${finCell(st, r)}</td><td class="n">${raceEnt[st[0]].length}</td><td class="n">${st[2] || ''}</td><td>${esc(V[st[3]] || '')}</td><td>${esc(V[st[5]] || '')}</td><td class="n">${st[7] ? money(st[7]) : ''}</td></tr>`; }).join('') +
+        `</tbody></table>${list.length > shown.length ? `<button class="btn small" data-lookall="1">Show all ${list.length}</button>` : ''}</div>`;
+    } else if (L.t === 'race') {
+      const set = L.cs ? new Set(L.cs) : null;
+      const ids = []; R.forEach((r, i) => { if (set ? set.has(r[1]) && (L.no == null || r[2] === L.no) : raceTitle(r) === L.title) ids.push(i); });
+      ids.sort((a, b) => R[b][0] - R[a][0] || (R[a][2] || 0) - (R[b][2] || 0));
+      head = esc(L.cs ? titleCase(L.q.replace(/[\s,]*(?:race|r)\s*#?\s*\d+$/i, '')) + (L.no ? ' · Race ' + L.no : ' · all races') : L.title);
+      const shown = state.lookAll ? ids : ids.slice(0, 300);
+      body = `<div class="pad"><div class="resinfo">${ids.length} race${ids.length === 1 ? '' : 's'} on record · click a race for the full result</div>
+        <table class="pplines restab"><thead><tr><th>Date</th><th>Meet</th><th>Race</th><th>Type</th><th>Dist</th><th>Going</th><th class="n">Ran</th><th>Winner</th><th class="n">Wt</th><th>Rider</th><th>Time</th></tr></thead><tbody>` +
+        shown.map(ri => { const r = R[ri], w = raceEnt[ri].find(e => e[1] === '1'), wh = w && H[w[0]], ws = wh && wh[10].find(x => x[0] === ri);
+          return `<tr><td class="trk">${raceLink(ri, fmtDate(r[0]))}</td><td>${esc(C[r[1]][1])}</td><td>${raceLink(ri, 'R' + (r[2] || '?') + ' ' + esc(raceTitle(r) || ''))}</td><td>${esc(KIND[r[6]] || '')}</td><td>${esc(V[r[9]] || '')}</td><td>${esc(r[11] || '')}</td><td class="n">${raceEnt[ri].length}</td>
+            <td>${wh ? horseLink(wh[0], esc(wh[1])) : '—'}</td><td class="n">${ws && ws[2] || ''}</td><td>${ws ? esc(V[ws[3]] || '') : ''}</td><td>${esc(r[12] || '')}</td></tr>`; }).join('') +
+        `</tbody></table>${ids.length > shown.length ? `<button class="btn small" data-lookall="1">Show all ${ids.length}</button>` : ''}</div>`;
+    }
+  } finally { state.asOf = keepAs; }
+  $('#notice').innerHTML = `<div class="racehead"><div><div class="t">${head}</div><div class="c">Database search</div></div><div class="par"><button class="btn small" data-closelook="1">Back to the race card</button></div></div>`;
+  return `<div class="sheet">${body}</div>`;
+}
+function wireDb() {
+  $('#dbq').addEventListener('input', e => dbSearch(e.target.value));
+  $('#dbq').addEventListener('keydown', e => {
+    const box = $('#dbres'); if (box.hidden || !dbHits.length) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); dbOn = (dbOn + (e.key === 'ArrowDown' ? 1 : dbHits.length - 1)) % dbHits.length;
+      box.querySelectorAll('button').forEach((b, k) => b.classList.toggle('on', k === dbOn)); box.querySelectorAll('button')[dbOn].scrollIntoView({ block: 'nearest' }); }
+    else if (e.key === 'Enter') { e.preventDefault(); openLook(dbHits[dbOn].look); }
+    else if (e.key === 'Escape') box.hidden = true;
+  });
+  $('#dbres').addEventListener('click', e => { const b = e.target.closest('button[data-db]'); if (b) openLook(dbHits[+b.dataset.db].look); });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.dbsearch')) $('#dbres').hidden = true;
+    const t = e.target.closest('[data-race],[data-look-horse],[data-closelook],[data-lookall],[data-add]'); if (!t) return;
+    if (t.dataset.race) openPastRace(+t.dataset.race);
+    else if (t.dataset.lookHorse) openLook({ t: 'horse', id: +t.dataset.lookHorse });
+    else if (t.dataset.closelook) { state.look = null; commit(); }
+    else if (t.dataset.lookall) { state.lookAll = true; commit(); }
+    else if (t.dataset.add) { addHorse(+t.dataset.add); }
+  });
 }
 
 // ---------------------------------------------------------------- race header
@@ -1090,6 +1201,8 @@ function render() {
 </div>
       <div class="par">${x.r.hist != null ? `<span class="status final">Result</span><br>past performances as they stood on race day` : `<span class="status ${x.c.status}">${x.c.status === 'final' ? 'Final' : 'Provisional'} entries</span><br>${esc(srcName(x.c.source))} overnight · fetched ${esc(x.c.fetched || '')}`}</div></div>` : '';
   const v = $('#view');
+  if (state.look) { buildPeople(); $('.tabs').hidden = true; v.innerHTML = renderLook(); return; }
+  $('.tabs').hidden = false;
   if (!state.horses.length) { v.innerHTML = x ? '<div class="empty-form">None of the entries in this race have starts in the archive yet.</div>' : '<div class="empty-form"><b>Build the field.</b><br>Choose a race from <b>Race card</b> to load its entries, type a horse\'s name to add each runner yourself, or load the field from a past race. Their past performances appear here side by side, with a comparison sheet and head-to-head record.</div>'; return; }
   const past = x && x.r.hist != null;
   $('#tab-pp').textContent = past ? 'Results' : 'Past performances';
@@ -1121,6 +1234,7 @@ function applyCard(c) {
   state.example = null; syncControls(); commit();
 }
 function renderSaved() {
+  if (!$('#savedCards')) return;
   const cards = store.get('spp.cards', []);
   $('#savedCards').innerHTML = cards.length ? cards.map((c, i) => `<option value="${i}">${esc(c.name)} (${c.card.horses.length})</option>`).join('') : '<option value="">No saved cards</option>';
 }
@@ -1168,7 +1282,7 @@ function wire() {
   $('#view').addEventListener('click', e => { const th = e.target.closest('th[data-sort]'); if (th) sortBy(th); });
   $('#view').addEventListener('keydown', e => { const th = e.target.closest('th[data-sort]'); if (th && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); sortBy(th); } });
 
-  $('#saveCard').addEventListener('click', () => {
+  if ($('#saveCard')) { $('#saveCard').addEventListener('click', () => {
     const name = $('#cardName').value.trim() || ('Race card ' + new Date().toLocaleDateString('en-US'));
     if (!state.horses.length) { toast('Add some horses before saving'); return; }
     const cards = store.get('spp.cards', []).filter(c => c.name !== name);
@@ -1190,6 +1304,8 @@ function wire() {
     const done = () => toast('Link copied');
     try { navigator.clipboard.writeText(url).then(done, () => fallbackCopy(url)); } catch (e) { fallbackCopy(url); }
   });
+  }
+  wireDb();
 }
 function fallbackCopy(url) {
   const i = $('#cardName'); const old = i.value; i.value = url; i.select();
