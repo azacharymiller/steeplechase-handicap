@@ -1291,10 +1291,12 @@ function render() {
       <div class="par">${x.r.hist != null ? `<span class="status final">Result</span><br>click a horse for his past performances through today` : `<span class="status ${x.c.status}">${x.c.status === 'final' ? 'Final' : 'Provisional'} entries</span><br>${esc(srcName(x.c.source))} overnight · fetched ${esc(x.c.fetched || '')}`}</div></div>` : '';
   const v = $('#view');
   if (state.look) { buildPeople(); $('.tabs').hidden = true; v.innerHTML = renderLook(); return; }
-  $('.tabs').hidden = false;
+  $('.tabs').hidden = false; $('#tab-cmp').hidden = $('#tab-h2h').hidden = false;
   if (!state.horses.length) { v.innerHTML = x ? '<div class="empty-form">None of the entries in this race have starts in the archive yet.</div>' : '<div class="empty-form"><b>Build the field.</b><br>Choose a race from <b>Race card</b> to load its entries, type a horse\'s name to add each runner yourself, or load the field from a past race. Their past performances appear here side by side, with a comparison sheet and head-to-head record.</div>'; return; }
   const past = x && x.r.hist != null;
   $('#tab-pp').textContent = past ? 'Results' : 'Past performances';
+  $('#tab-cmp').hidden = $('#tab-h2h').hidden = !!past;          // a resulted race: the result is the answer
+  if (past && state.tab !== 'pp') { state.tab = 'pp'; $('#tab-pp').setAttribute('aria-selected', 'true'); $('#tab-cmp').setAttribute('aria-selected', 'false'); $('#tab-h2h').setAttribute('aria-selected', 'false'); }
   $('#ppOpts').hidden = state.tab !== 'pp' || (past && !state.pick);
   v.innerHTML = state.tab === 'pp' ? (past ? renderResults(x.r.hist) : renderPP()) : state.tab === 'cmp' ? renderCmp() : renderH2H();
   if (past && state.pick && state.tab === 'pp') { const el = v.querySelector('tr.ppopen'); if (el && pickScroll) { el.previousElementSibling.scrollIntoView({ block: 'start', behavior: 'smooth' }); pickScroll = false; } }
