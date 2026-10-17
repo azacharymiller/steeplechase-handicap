@@ -551,6 +551,23 @@ function eqLife(h) {
   for (const l of e[2]) if (l[10] > o.fig) o.fig = l[10];
   return o;
 }
+// Every start on file for a horse, from all sources, newest first: [date, finish, source]
+// sources: US = American jump race (archive), FL = flat (Equibase/Timbercreek lines), RJ/RF = races under Rules
+// abroad over jumps / on the flat (At The Races), PP = British/Irish point-to-point (GB Pointing, p2p.ie).
+const isJumpRace = t => /Hdl|Ch\b|Ch$|Chase|Hurdle/i.test(t || '');
+function allStarts(h) {
+  const out = [], lim = d => !state.asOf || d < state.asOf;
+  for (const s of h[10]) out.push([R[s[0]][0], s[1] || '', 'US']);
+  const e = eq(h); if (e) for (const l of e[2]) if (lim(l[0])) out.push([l[0], l[8] || '', 'FL']);
+  const t = D.track && D.track[h[0]]; if (t) for (const l of t[1]) if (lim(l[0])) out.push([l[0], l[8] || '', isJumpRace(l[4]) ? 'RJ' : 'RF']);
+  for (const k of ['irish', 'british']) { const x = D[k] && D[k][h[0]]; if (x) for (const l of x[1]) if (lim(l[0])) out.push([l[0], l[5] || '', 'PP']); }
+  return out.sort((a, b) => b[0] - a[0]);
+}
+function recOf(list, pred) {
+  const o = { st: 0, w: 0, p: 0, s: 0, e: 0 };
+  for (const x of list) { if (pred && !pred(x)) continue; o.st++; if (x[1] === '1') o.w++; else if (x[1] === '2') o.p++; else if (x[1] === '3') o.s++; }
+  return o;
+}
 const recTxt = o => `${o.st} ${o.w}-${o.p}-${o.s}`;
 const near = (f, t) => t && f && Math.abs(f - t) <= 1.01;
 const goingOf = r => GOING_GROUP[r[11]] || '';
@@ -926,11 +943,15 @@ function metrics(id, pos) {
   let bestVar = null;
   for (const s of ss) { const r = R[s[0]]; if (s[1] === '1') { const v = parVar(r); if (v != null && (bestVar == null || v < bestVar)) bestVar = v; } }
   const ty = Math.floor(td / 10000);
-  const yr = rec(h, r => Math.floor(r[0] / 10000) === ty);
+  const all = allStarts(h);
+  const yr = recOf(all, x => Math.floor(x[0] / 10000) === ty);
+  const abroadJ = recOf(all, x => x[2] === 'RJ'), p2p = recOf(all, x => x[2] === 'PP');
+  const flatAll = recOf(all, x => x[2] === 'FL' || x[2] === 'RF');
+  const lastAny = all[0];
   return {
-    pos, id, h, life, last, errs, pu, tim, hdl, bestVar, yr,
-    days: last ? daysBetween(last[0], td) : null,
-    form: ss.slice(0, 5).map(s => s[1] || '—').join('-'),
+    pos, id, h, life, last, errs, pu, tim, hdl, bestVar, yr, all: recOf(all), abroadJ, p2p, flatAll, lastAny,
+    days: lastAny ? daysBetween(lastAny[0], td) : null,
+    form: all.slice(0, 5).map(x => (esc(x[1]) || '—') + (x[2] === 'US' ? '' : `<sub>${{FL: 'f', RF: 'f', RJ: 'a', PP: 'p'}[x[2]]}</sub>`)).join('-'),
     winPct: life.st ? life.w / life.st : 0, itmPct: life.st ? (life.w + life.p + life.s) / life.st : 0,
     errPct: ss.length ? errs / ss.length : 0, compPct: ss.length ? (ss.length - errs - pu) / ss.length : 0,
     flat: flatRec(h), fig: (eqLife(h) || {}).fig || 0,
@@ -943,7 +964,8 @@ const recScore = o => o && o.st ? o.w * 3 + o.p * 2 + o.s + (o.w / o.st) : -1;
 const COLS = [
   { k: 'pos', t: '#', l: true, v: m => m.pos, show: m => pgm(m.pos) },
   { k: 'name', t: 'Horse', l: true, v: m => m.h[1], show: m => `<span class="hn">${esc(m.h[1])}</span><span class="s">${years(m.h)}${m.h[5] ? ' · foaled ' + m.h[5] : ''}</span>` },
-  { k: 'st', t: 'Starts', v: m => m.life.st, best: 'max' },
+  { k: 'allr', t: 'All races', v: m => recScore(m.all), show: m => recCell(m.all), best: 'max' },
+  { k: 'st', t: 'US jump starts', v: m => m.life.st, best: 'max' },
   { k: 'rec', t: 'W-P-S', v: m => recScore(m.life), show: m => `${m.life.w}-${m.life.p}-${m.life.s}`, best: 'max' },
   { k: 'win', t: 'Win%', v: m => m.winPct, show: m => m.life.st ? pct(m.winPct) : '—', best: 'max' },
   { k: 'itm', t: 'ITM%', v: m => m.itmPct, show: m => m.life.st ? pct(m.itmPct) : '—', best: 'max' },
@@ -951,10 +973,12 @@ const COLS = [
   { k: 'yr', t: 'This year', v: m => recScore(m.yr), show: m => recCell(m.yr), best: 'max' },
   { k: 'tim', t: 'Timber', v: m => recScore(m.tim), show: m => recCell(m.tim), best: 'max' },
   { k: 'hdl', t: 'Hurdle', v: m => recScore(m.hdl), show: m => recCell(m.hdl), best: 'max' },
-  { k: 'flat', t: 'Flat', v: m => recScore(m.flat), show: m => m.flat.st ? recCell(m.flat) : '—', best: 'max' },
+  { k: 'abj', t: 'Hdl/Ch abroad', v: m => recScore(m.abroadJ), show: m => m.abroadJ.st ? recCell(m.abroadJ) : '—', best: 'max' },
+  { k: 'p2p', t: 'P-to-P abroad', v: m => recScore(m.p2p), show: m => m.p2p.st ? recCell(m.p2p) : '—', best: 'max' },
+  { k: 'flat', t: 'Flat', v: m => recScore(m.flatAll), show: m => m.flatAll.st ? recCell(m.flatAll) : '—', best: 'max' },
   { k: 'fig', t: 'Best fig', v: m => m.fig || -1, show: m => m.fig ? `${m.fig}<span class="s">Equibase</span>` : '—', best: 'max' },
-  { k: 'days', t: 'Days off', v: m => m.days ?? 1e9, show: m => m.days == null ? '—' : `${m.days}<span class="s">${fmtDate(m.last[0])} ${esc(C[m.last[1]][0])}</span>` },
-  { k: 'form', t: 'Last 5', l: true, v: m => m.form, show: m => esc(m.form) },
+  { k: 'days', t: 'Days off', v: m => m.days ?? 1e9, show: m => m.days == null ? '—' : `${m.days}<span class="s">${fmtDate(m.lastAny[0])} ${m.lastAny[2] === 'US' && m.last ? esc(C[m.last[1]][0]) : {FL: 'flat', RF: 'flat abroad', RJ: 'abroad', PP: 'point-to-point abroad'}[m.lastAny[2]] || ''}</span>` },
+  { k: 'form', t: 'Last 5', l: true, v: m => m.form, show: m => m.form },
   { k: 'comp', t: 'Finished', v: m => m.life.st ? m.compPct : -1, show: m => !m.life.st ? '—' : `${pct(m.compPct)}<span class="s">${m.errs} fell/unseated · ${m.pu} PU</span>`, best: 'max' },
   { k: 'var', t: 'Best Par±', v: m => m.bestVar ?? 1e9, show: m => m.bestVar == null ? '—' : sgn(m.bestVar), best: 'min' },
   { k: 'conn', t: 'Last rider / trainer', l: true, v: m => m.rider, show: m => `${esc(m.rider || '—')}<span class="s">${esc(m.trainer || '')}</span>` },
@@ -980,7 +1004,7 @@ function renderCmp() {
     return `<td class="${c.l ? 'l' : ''}${best ? ' best' : ''}">${c.show ? c.show(m) : esc(v)}</td>`;
   }).join('') + '</tr>').join('');
   return `<div class="sheet"><table class="cmp"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>
-    <div class="legend"><span><mark>highlighted</mark> best in the field</span><span>Records read starts: wins-seconds-thirds</span><span>Finished = completed the course (not fell, unseated, refused, ran out or pulled up)</span><span>Click a column to sort</span></div></div>`;
+    <div class="legend"><span><mark>highlighted</mark> best in the field</span><span>Records read starts: wins-seconds-thirds</span><span>All races = American jump races + flat + British/Irish/French races under Rules + point-to-points abroad; This year, Days off and Last 5 count them all (Last 5: <sub>f</sub> flat, <sub>a</sub> hurdle/chase abroad, <sub>p</sub> point-to-point abroad)</span><span>W-P-S, Win%, ITM%, Earnings, Finished and Par± are American jump races</span><span>Finished = completed the course (not fell, unseated, refused, ran out or pulled up)</span><span>Click a column to sort</span></div></div>`;
 }
 
 // ---------------------------------------------------------------- head to head
