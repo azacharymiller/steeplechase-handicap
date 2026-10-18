@@ -77,13 +77,14 @@ button, input, select { font: inherit; color: inherit; }
   display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); gap: 20px;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 16px 40px; align-items: start;
+  padding-block: 16px 20px; align-items: start;
 }
 @media (max-width: 900px) { .desk { grid-template-columns: minmax(0, 1fr); } }
 
 /* ---------- race card rail */
 .rail { display: grid; gap: 16px; min-width: 0; }
-@media (min-width: 901px) { .rail { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); max-height: calc(100vh - 24px); overflow: auto; padding-right: 4px; } }
+/* 2026-10-17: no height cap / inner scroll on the rail, so its drop-down lists are never clipped */
+.rail { overflow: visible; }
 .panel { background: var(--sheet); border: 1px solid var(--rule); padding: 12px; display: grid; gap: 10px; }
 .panel h2 {
   margin: 0; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; font-weight: 800;
@@ -317,9 +318,8 @@ table.h2h { border-collapse: collapse; font-size: 13px; font-stretch: 82%; }
   position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
   background: var(--ink); color: var(--paper); padding: 8px 14px; font-size: 13px; border-radius: 2px; z-index: 50;
 }
-main.desk { min-height: calc(100vh - 90px); }
 footer.colophon {
-  margin-top: 48px; background: var(--ink); color: var(--paper); font-size: 12px; line-height: 1.5; text-align: right;
+  margin-top: 8px; background: var(--ink); color: var(--paper); font-size: 12px; line-height: 1.5; text-align: right;
   padding: 22px max(16px, env(safe-area-inset-right, 0px)) calc(22px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
 }
 footer.colophon .notes { max-width: 900px; margin-left: auto; opacity: .85; }
