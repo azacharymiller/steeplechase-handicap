@@ -139,6 +139,7 @@ select, input[type="text"], input[type="date"], input[type="search"] {
 .racehead .avg { font-size: 12.5px; margin-top: 4px; }
 .racehead .avg mark { background: var(--hilite); color: var(--hilite-ink); padding: 0 3px; }
 table.restab td { vertical-align: top; }
+.replaynote{font-size:12px;margin:-6px 0 12px;opacity:.8}.replaynote .hlink{font-size:12px}
 .replaylink{display:inline-flex;align-items:center;gap:10px;margin:0 0 12px;padding:8px 14px 8px 10px;border:1px solid var(--line,#ccc);border-radius:6px;text-decoration:none;color:inherit}.replaylink:hover{border-color:currentColor}.replaylink .play{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#1ab7ea;color:#fff;font-size:13px}.replaylink small{display:block;font-size:11px;opacity:.7}
 .replay{position:relative;width:100%;max-width:880px;aspect-ratio:16/9;margin:0 0 12px;background:#000;border-radius:4px;overflow:hidden}.replay iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 #view .hlink { all: unset; cursor: pointer; font-weight: 700; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
@@ -1160,8 +1161,14 @@ function renderResults(ri) {
       <td class="cmt">${esc(V[st[8]] || '')}</td></tr>`;
     return line + (open && idx >= 0 ? `<tr class="ppopen"><td colspan="8">${ppNow(h[0], idx)}</td></tr>` : '');
   }).join('');
-  const vid = D.video && D.video[ri], vp = vid ? String(vid).split('/') : null;
-  const player = !vp ? '' : !D.videoEmbed ? `<a class="replaylink" href="https://vimeo.com/${encodeURIComponent(vp[0])}${vp[1] ? '/' + encodeURIComponent(vp[1]) : ''}" target="_blank" rel="noopener"><span class="play">▶</span><span><b>Watch the race replay</b><small>NSA Films on Vimeo</small></span></a>` : `<div class="replay"><iframe src="https://player.vimeo.com/video/${encodeURIComponent(vp[0])}?${vp[1] ? 'h=' + encodeURIComponent(vp[1]) + '&' : ''}dnt=1&title=0&byline=0&portrait=0" allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy" title="Race replay"></iframe></div>`;
+  const vx = D.video && D.video[ri];
+  const vm = vx && vx.v ? String(vx.v).split('/') : null, yt = vx && vx.y ? vx.y : [];
+  const vlink = vm ? `<a class="replaylink" href="https://vimeo.com/${encodeURIComponent(vm[0])}${vm[1] ? '/' + encodeURIComponent(vm[1]) : ''}" target="_blank" rel="noopener"><span class="play">▶</span><span><b>Watch the race replay</b><small>NSA Films on Vimeo</small></span></a>` : '';
+  const vembed = vm && D.videoEmbed ? `<div class="replay"><iframe src="https://player.vimeo.com/video/${encodeURIComponent(vm[0])}?${vm[1] ? 'h=' + encodeURIComponent(vm[1]) + '&' : ''}dnt=1&title=0&byline=0&portrait=0" allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy" title="Race replay"></iframe></div>` : '';
+  const ysrc = id => `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?rel=0`;
+  const yblock = yt.length ? `<div class="replay"><iframe id="ytframe" src="${ysrc(yt[0][0])}" allow="fullscreen; picture-in-picture; encrypted-media" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin" title="Race day video"></iframe></div>
+    <div class="replaynote">Race day video${yt.length > 1 ? ': ' + yt.map((y, k) => `<button class="hlink ytpart" data-yt="${esc(y[0])}">${esc(y[1] || 'Video ' + (k + 1))}</button>`).join(' · ') : ''} · the whole day's card, from the <a href="https://www.youtube.com/@TGSF-Archives" target="_blank" rel="noopener">Temple Gwathmey Steeplechase Foundation archive</a></div>` : '';
+  const player = (vembed || '') + yblock + (vembed ? '' : vlink);
   return `<div class="sheet"><div class="pad">${player}<div class="resinfo">Going <b>${esc(r[11] || '—')}</b> · time <b>${esc(r[12] || '—')}</b> · won by <b>${esc(r[14] || '—')}</b> · ${raceEnt[ri].length} ran${r[16] ? ' · purse ' + money(r[16]) : ''}</div>
     <table class="pplines restab"><thead><tr><th>Fin</th><th class="l">Horse</th><th class="n" title="Weight carried, lbs">Wt</th><th>Rider</th><th>Trainer</th><th>Owner</th><th class="n">Earned</th><th>Comment</th></tr></thead>
     <tbody>${rows}</tbody></table></div>
@@ -1309,6 +1316,8 @@ function render() {
 }
 let pickScroll = false;
 document.addEventListener('click', ev => {
+  const yp = ev.target.closest('button.ytpart[data-yt]');
+  if (yp) { const f = document.getElementById('ytframe'); if (f) f.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(yp.dataset.yt) + '?rel=0&autoplay=1'; return; }
   const b = ev.target.closest('button.hlink[data-pick]'); if (!b) return;
   const id = +b.dataset.pick; state.pick = state.pick === id ? null : id; pickScroll = state.pick != null; commit();
 });
