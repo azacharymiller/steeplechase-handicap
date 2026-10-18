@@ -1375,7 +1375,7 @@ function renderHome() {
   for (const h of H) for (const s of h[10]) { if (s[1] !== '1' || R[s[0]][17] || Math.floor(R[s[0]][0] / 10000) !== y) continue; for (const k of [3, 5]) if (s[k]) tally[k].set(s[k], (tally[k].get(s[k]) || 0) + 1); }
   const top = (k, role) => [...tally[k]].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([v, n]) => `<li><button type="button" class="hlink" data-person="${v}" data-role="${role}">${esc(role === 'r' ? riderFull(V[v]) : V[v])}</button> <span class="muted">${n}</span></li>`).join('');
   const leaders = `<div class="homecard"><div class="hh">${y} point-to-point leaders<small>wins in point-to-point races only · official NSA standings: <a href="https://nationalsteeplechase.com/racing/" target="_blank" rel="noopener">nationalsteeplechase.com</a></small></div><div class="lead"><div><b>Riders</b><ol>${top(3, 'r')}</ol></div><div><b>Trainers</b><ol>${top(5, 't')}</ol></div></div></div>`;
-  return `<div class="home"><p class="homeintro">Choose a race from <b>Race card</b>, type a horse's name to build a field, or search the database. Recent meets are one click away:</p><div class="homegrid">${parts.join('')}${leaders}</div></div>`;
+  return `<div class="home"><p class="homeintro">Choose a race from <b>Race card</b>, type a horse's name to build a field, or search the database. Recent meets are one click away:</p><div class="homegrid">${parts.join('')}</div></div>`;
 }
 function renderPP() {
   return state.horses.map((id, i) => ppBlock(id, i)).join('') +
