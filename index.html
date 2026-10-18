@@ -1351,12 +1351,13 @@ function renderHome() {
     parts.push(`<div class="homecard"><div class="hh">${esc(C[c][1])}<small>${esc(dayName(d))} · results</small></div>
       <div class="hr">${ids.map(i => `<button type="button" class="hlink" data-race="${i}">R${R[i][2]} ${esc(raceTitle(R[i]) || '')}</button>`).join('')}</div></div>`);
   }
-  // season leaders by wins
+  // point-to-point leaders by wins (2026-10-18, Zach: point-to-points don't count toward official records, so this board
+  // counts only unsanctioned races; the official NSA standings are linked, not recomputed here)
   const y = Math.floor(R[R.length - 1][0] / 10000);
   const tally = { 3: new Map(), 5: new Map() };
-  for (const h of H) for (const s of h[10]) { if (s[1] !== '1' || Math.floor(R[s[0]][0] / 10000) !== y) continue; for (const k of [3, 5]) if (s[k]) tally[k].set(s[k], (tally[k].get(s[k]) || 0) + 1); }
+  for (const h of H) for (const s of h[10]) { if (s[1] !== '1' || R[s[0]][17] || Math.floor(R[s[0]][0] / 10000) !== y) continue; for (const k of [3, 5]) if (s[k]) tally[k].set(s[k], (tally[k].get(s[k]) || 0) + 1); }
   const top = (k, role) => [...tally[k]].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([v, n]) => `<li><button type="button" class="hlink" data-person="${v}" data-role="${role}">${esc(role === 'r' ? riderFull(V[v]) : V[v])}</button> <span class="muted">${n}</span></li>`).join('');
-  const leaders = `<div class="homecard"><div class="hh">${y} leaders<small>wins in American jump races</small></div><div class="lead"><div><b>Riders</b><ol>${top(3, 'r')}</ol></div><div><b>Trainers</b><ol>${top(5, 't')}</ol></div></div></div>`;
+  const leaders = `<div class="homecard"><div class="hh">${y} point-to-point leaders<small>wins in point-to-point races only · official NSA standings: <a href="https://nationalsteeplechase.com/racing/" target="_blank" rel="noopener">nationalsteeplechase.com</a></small></div><div class="lead"><div><b>Riders</b><ol>${top(3, 'r')}</ol></div><div><b>Trainers</b><ol>${top(5, 't')}</ol></div></div></div>`;
   return `<div class="home"><p class="homeintro">Choose a race from <b>Race card</b>, type a horse's name to build a field, or search the database. Recent meets are one click away:</p><div class="homegrid">${parts.join('')}${leaders}</div></div>`;
 }
 function renderPP() {
