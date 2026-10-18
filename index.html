@@ -158,6 +158,8 @@ table.restab tr.ppopen > td { padding: 8px 0 14px; background: transparent; whit
 .dbsearch .results { position: static; max-height: 420px; margin-top: 4px; box-shadow: none; }
 table.sortable th[data-lsort] { cursor: pointer; user-select: none; }
 table.sortable th[data-lsort]:hover { color: var(--accent); }
+.rankwrap { display: grid; justify-items: center; gap: 3px; }
+.ranklbl { font-size: 9.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .rankbadge { display: inline-flex; align-items: center; justify-content: center; min-width: 2.2em; height: 2.2em; padding: 0 .35em; font-weight: 800; font-size: 15px; background: var(--ink); color: var(--sheet); border-radius: 3px; }
 .panel .hint { font-size: 11.5px; color: var(--muted); margin-top: 6px; }
 .lookbar { display: flex; justify-content: flex-end; padding: 8px 10px 0; }
@@ -334,6 +336,8 @@ footer.colophon { margin-top: auto; }
 .racehead .par .copylink { margin: 6px 0 0; display: inline-block; }
 .hdrreplay { font-size: 12px; font-weight: 700; color: var(--accent); margin-left: 6px; text-decoration: none; white-space: nowrap; }
 .hdrreplay:hover { text-decoration: underline; }
+.pplines .reslink { all: unset; cursor: pointer; border-bottom: 1px dotted var(--accent); }
+.pplines .reslink:hover { color: var(--accent); border-bottom-style: solid; }
 .field .fieldjump { all: unset; cursor: pointer; display: block; }
 .field .fieldjump:hover { color: var(--accent); text-decoration: underline; }
 .foldbtn { all: unset; cursor: pointer; font-weight: 700; color: var(--accent); }
@@ -348,7 +352,7 @@ footer.colophon { margin-top: auto; }
   .restab .d-only { display: none; }
   table.pplines.restab { min-width: 0; }
 }
-table.restab.nocmt th:last-child, table.restab.nocmt td.cmt { display: none; }
+table.restab.nocmt > thead > tr > th:last-child, table.restab.nocmt > tbody > tr > td.cmt { display: none; }
 .resinfo span b { margin-left: 3px; }
 button.ofmore { all: unset; cursor: pointer; color: var(--accent); font-weight: 700; font-size: 11.5px; white-space: nowrap; }
 button.ofmore:hover { text-decoration: underline; }
@@ -804,13 +808,24 @@ function buildPeople() {
   H.forEach((h, hi) => h[10].forEach((st, si) => { add(st[3], 'r', [hi, si]); add(st[5], 't', [hi, si]); add(st[6], 'o', [hi, si]); }));
   // all-time rankings by races won, per role (ties: fewer starts ranks higher)
   PEOPLE_N = {};
+  // 2026-10-18 (Zach): point-to-points don't count toward official records, so NSA-sanctioned and point-to-point
+  // records and all-time rankings are kept apart (rk = all races, rkn = NSA-sanctioned, rkp = point-to-point)
+  const sanc = ([hi, si]) => !!R[H[hi][10][si][0]][17], won = ([hi, si]) => H[hi][10][si][1] === '1';
   for (const k of ['r', 't', 'o']) {
-    const list = [];
-    for (const [v, p] of PEOPLE) if (p[k].length) { p['w' + k] = p[k].filter(([hi, si]) => H[hi][10][si][1] === '1').length; list.push(p); }
-    list.sort((a, b) => b['w' + k] - a['w' + k] || a[k].length - b[k].length);
-    let rank = 0, prev = null;
-    list.forEach((p, i) => { if (p['w' + k] !== prev) { rank = i + 1; prev = p['w' + k]; } p['rk' + k] = rank; });
-    PEOPLE_N[k] = list.length;
+    const lists = { '': [], n: [], p: [] };
+    for (const [v, p] of PEOPLE) if (p[k].length) {
+      p['w' + k] = p[k].filter(won).length;
+      p['sn' + k] = p[k].filter(sanc).length; p['sp' + k] = p[k].length - p['sn' + k];
+      p['wn' + k] = p[k].filter(x => sanc(x) && won(x)).length; p['wp' + k] = p['w' + k] - p['wn' + k];
+      lists[''].push(p); if (p['sn' + k]) lists.n.push(p); if (p['sp' + k]) lists.p.push(p);
+    }
+    for (const c of ['', 'n', 'p']) {
+      const W = 'w' + c + k, S = c ? 's' + c + k : null, list = lists[c];
+      list.sort((a, b) => b[W] - a[W] || (S ? a[S] - b[S] : a[k].length - b[k].length));
+      let rank = 0, prev = null;
+      list.forEach((p, i) => { if (p[W] !== prev) { rank = i + 1; prev = p[W]; } p['rk' + c + k] = rank; });
+      PEOPLE_N[c + k] = list.length;
+    }
   }
 }
 let PEOPLE_N = {};
@@ -821,8 +836,8 @@ function personHead(p, rows, main) {
   const recOfRows = pred => { const o = { st: 0, w: 0, p: 0, s: 0, e: 0 }; rows.forEach(x => { if (pred && !pred(x)) return; o.st++; o.e += x.st[7]; if (x.st[1] === '1') o.w++; else if (x.st[1] === '2') o.p++; else if (x.st[1] === '3') o.s++; }); return o; };
   const yrs = rows.map(x => Math.floor(x.r[0] / 10000)), y1 = Math.max(...yrs), y0 = Math.min(...yrs);
   const life = recOfRows();
-  const recRows = [['Life', life, false]];
-  recRows.push([String(y1), recOfRows(x => Math.floor(x.r[0] / 10000) === y1), false]);
+  const recRows = [['Life', life, false], ['NSA', recOfRows(x => !!x.r[17]), true], ['Pt-to-Pt', recOfRows(x => !x.r[17]), false]];
+  recRows.push([String(y1), recOfRows(x => Math.floor(x.r[0] / 10000) === y1), true]);
   if (y1 - 1 >= y0) recRows.push([String(y1 - 1), recOfRows(x => Math.floor(x.r[0] / 10000) === y1 - 1), false]);
   ['T', 'H', 'F'].forEach((k, i) => recRows.push([KIND[k], recOfRows(x => x.r[6] === k), i === 0]));
   ['firm', 'good', 'soft'].forEach((g, i) => recRows.push([g === 'soft' ? 'Yld/Sft' : g[0].toUpperCase() + g.slice(1), recOfRows(x => goingOf(x.r) === g), i === 0]));
@@ -831,16 +846,18 @@ function personHead(p, rows, main) {
   const tally = (f) => { const m = new Map(); rows.forEach(x => { if (x.st[1] !== '1') return; const k = f(x); m.set(k, (m.get(k) || 0) + 1); }); return [...m].sort((a, b) => b[1] - a[1])[0]; };
   const topHorse = tally(x => x.h[1]), topCourse = tally(x => C[x.r[1]][1]);
   const bigWin = rows.filter(x => x.st[1] === '1').sort((a, b) => (b.r[16] || 0) - (a.r[16] || 0))[0];
-  const ranks = `<b>#${p['rk' + main].toLocaleString()}</b> of ${PEOPLE_N[main].toLocaleString()} ${ROLE[main].toLowerCase()}s (${p['w' + main]} win${p['w' + main] === 1 ? '' : 's'})`;
+  const rankLine = c => p['s' + c + main] ? `<b>#${p['rk' + c + main].toLocaleString()}</b> of ${PEOPLE_N[c + main].toLocaleString()} (${pl(p['w' + c + main], 'win')} from ${pl(p['s' + c + main], 'start')})` : '<span class="k">no starts</span>';
+  const ranks = `<span class="k">NSA-sanctioned:</span> ${rankLine('n')} · <span class="k">Point-to-point:</span> ${rankLine('p')}`;
+  const bc = p['sn' + main] ? 'n' : 'p';
   const also = others.map(k => `<button class="hlink" data-person="${p.v}" data-role="${k}">${ROLE[k].toLowerCase()} (${p[k].length} start${p[k].length === 1 ? '' : 's'})</button>`).join(', ');
   const best = bigWin ? `${horseLink(bigWin.h[0], esc(bigWin.h[1]))}, ${raceLink(bigWin.ri, esc(raceTitle(bigWin.r) || 'R' + bigWin.r[2]))} ${fmtDate(bigWin.r[0])}${bigWin.r[16] ? ' (' + money(bigWin.r[16]) + ')' : ''}` : '';
   return `<article class="pp person"><div class="pp-head">
-      <div><span class="rankbadge" title="All-time ranking by races won as ${ROLE[main].toLowerCase()}">#${p['rk' + main]}</span></div>
+      <div class="rankwrap"><span class="rankbadge" title="All-time ranking by ${bc === 'n' ? 'NSA-sanctioned' : 'point-to-point'} races won as ${ROLE[main].toLowerCase()}">#${p['rk' + bc + main]}</span><span class="ranklbl">${bc === 'n' ? 'NSA' : 'Pt-to-Pt'}</span></div>
       <div><div class="pp-name">${esc(p.n)}</div>
         <div class="pp-id">
           <div>${ROLE[main]} · ${y0 === y1 ? y0 : y0 + '–' + y1}${also ? ` · <span class="k">also on record as</span> ${also}` : ''}</div>
           <div><b>${life.st.toLocaleString()}</b> start${life.st === 1 ? '' : 's'} · <b>${life.w}</b> win${life.w === 1 ? '' : 's'} (${life.st ? Math.round(life.w / life.st * 100) : 0}%) · ${life.st ? Math.round((life.w + life.p + life.s) / life.st * 100) : 0}% in the money · <b>${money(life.e) || '$0'}</b></div>
-          <div><span class="k">All-time rank by wins as ${ROLE[main].toLowerCase()}:</span> ${ranks}</div>
+          <div><span class="k">All-time rank by wins as ${ROLE[main].toLowerCase()} —</span> ${ranks}</div>
           ${topHorse ? `<div><span class="k">Most wins with:</span> ${esc(topHorse[0])} (${topHorse[1]})</div>` : ''}
           ${topCourse ? `<div><span class="k">Most wins at:</span> ${esc(topCourse[0])} (${topCourse[1]})</div>` : ''}
           ${best ? `<div><span class="k">Richest win:</span> ${best}</div>` : ''}
@@ -897,7 +914,7 @@ function dbSearch(q) {
   const isPartner = n => /\s(and|&)\s|,/i.test(n);
   const direct = ps.filter(([, p]) => !isPartner(p.n));
   const partners = ps.filter(([, p]) => isPartner(p.n));
-  (direct.length ? direct : ps).slice(0, 8).forEach(([v, p]) => ['r', 't', 'o'].forEach(k => { if (p[k].length) pr.push({ t: 'person', label: `${p.n} — ${ROLE[k]}`, sub: `${pl(p[k].length, 'start')} · ${pl(p['w' + k], 'win')} · all-time #${p['rk' + k]}`, look: { t: 'person', v, k }, n: p[k].length }); }));
+  (direct.length ? direct : ps).slice(0, 8).forEach(([v, p]) => ['r', 't', 'o'].forEach(k => { if (p[k].length) pr.push({ t: 'person', label: `${p.n} — ${ROLE[k]}`, sub: [p['sn' + k] ? `NSA ${p['wn' + k]}/${p['sn' + k]} · #${p['rk' + 'n' + k]}` : '', p['sp' + k] ? `Pt-to-Pt ${p['wp' + k]}/${p['sp' + k]} · #${p['rk' + 'p' + k]}` : ''].filter(Boolean).join('  ·  ') + '  (wins/starts · all-time rank)', look: { t: 'person', v, k }, n: p[k].length }); }));
   out.push(...pr.slice(0, 8));
   if (direct.length && partners.length) out.push({ t: 'partners', label: `${pl(partners.length, 'ownership partnership')} including “${q}”`, sub: 'Owner · listed together', look: { t: 'partners', q, vs: partners.map(x => x[0]) } });
   out.push(...raceQuery(q));
@@ -1117,7 +1134,7 @@ function ppBlock(id, pos) {
     const cls = esc(V[r[3]]) + (r[16] ? ' $' + kpurse(r[16]) : '') + (r[17] ? '' : '<span class="ptp" title="Not NSA-sanctioned (point-to-point)">PtP</span>');
     const amat = s[4] ? '<sup title="Amateur rider">A</sup>' : '';
     body += `<tr>
-      <td class="trk">${fmtDate(r[0])}<sup>${r[2] || ''}</sup>${hl(m.trk, trkCell(C[r[1]][0], C[r[1]][1]))}</td>
+      <td class="trk"><button type="button" class="reslink" data-race="${s[0]}" title="Open the result: ${esc(C[r[1]][1])}, race ${r[2] || '?'}">${fmtDate(r[0])}<sup>${r[2] || ''}</sup>${hl(m.trk, esc(C[r[1]][0]))}</button></td>
       <td>${hl(m.going, goingCell(r[11]))}</td>
       <td>${hl(m.dist, esc(V[r[9]]) || '?')}<span class="sf" title="${SURF_TITLE[r[7]] || ''}">${SURF[r[7]] || '?'}</span></td>
       <td>${r[12] ? esc(r[12]) : '<span class="muted">—</span>'}</td>
@@ -1474,7 +1491,7 @@ function renderH2H() {
     shared.slice(0, 60).map(([ri, m]) => {
       const r = R[ri]; const w = raceEnt[ri].find(e => e[1] === '1');
       const wn = w ? (pos.has(w[0]) ? `<mark>${esc(H[w[0]][1])}</mark>${pgm(pos.get(w[0]), true)}` : esc(H[w[0]][1])) : '—';
-      return `<tr><td class="trk">${fmtDate(r[0])}<sup>${r[2] || ''}</sup>${trkCell(C[r[1]][0], C[r[1]][1])}</td><td>${goingCell(r[11])}</td><td>${esc(V[r[9]])}<span class="sf">${SURF[r[7]] || '?'}</span></td><td title="${esc(raceTitle(r) || '')}">${esc(V[r[3]])}${r[16] ? ' $' + kpurse(r[16]) : ''}</td><td class="n">${raceEnt[ri].length}</td>` +
+      return `<tr><td class="trk"><button type="button" class="reslink" data-race="${ri}" title="Open the result: ${esc(C[r[1]][1])}, race ${r[2] || '?'}">${fmtDate(r[0])}<sup>${r[2] || ''}</sup>${esc(C[r[1]][0])}</button></td><td>${goingCell(r[11])}</td><td>${esc(V[r[9]])}<span class="sf">${SURF[r[7]] || '?'}</span></td><td title="${esc(raceTitle(r) || '')}">${esc(V[r[3]])}${r[16] ? ' $' + kpurse(r[16]) : ''}</td><td class="n">${raceEnt[ri].length}</td>` +
         idx.map((_, i) => { const f = m.get(i); return `<td>${f == null ? '' : finCell([0, f], r)}</td>`; }).join('') + `<td>${wn}</td></tr>`;
     }).join('') + '</tbody></table>';
   return `<div class="sheet"><h3 class="section-title">Head to head</h3><div class="pad">${matrix}</div>
