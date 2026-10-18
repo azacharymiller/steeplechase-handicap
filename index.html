@@ -325,6 +325,53 @@ footer.colophon {
 footer.colophon .notes { max-width: 900px; margin-left: auto; opacity: .85; }
 footer.colophon .copy { margin-top: 12px; font-weight: 600; letter-spacing: .02em; opacity: .9; }
 footer.colophon a { color: var(--paper) !important; }
+/* ---------- 2026-10-18 review: links, folding, results on phones, comparison groups, home */
+body { min-height: 100vh; display: flex; flex-direction: column; margin: 0; }
+main.desk { flex: 1 0 auto; width: 100%; }
+footer.colophon { margin-top: auto; }
+@media (max-width: 640px) { footer.colophon { text-align: left; } footer.colophon .notes { margin-left: 0; } }
+.copylink { all: unset; cursor: pointer; font-size: 11px; font-weight: 600; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; margin-left: 10px; letter-spacing: 0; text-transform: none; font-stretch: 90%; vertical-align: 2px; }
+.racehead .par .copylink { margin: 6px 0 0; display: inline-block; }
+.hdrreplay { font-size: 12px; font-weight: 700; color: var(--accent); margin-left: 6px; text-decoration: none; white-space: nowrap; }
+.hdrreplay:hover { text-decoration: underline; }
+.field .fieldjump { all: unset; cursor: pointer; display: block; }
+.field .fieldjump:hover { color: var(--accent); text-decoration: underline; }
+.foldbtn { all: unset; cursor: pointer; font-weight: 700; color: var(--accent); }
+#fieldPanel.folded .search, #fieldPanel.folded #field, #fieldPanel.folded .row { display: none; }
+@media (max-width: 900px) {
+  .rail { display: contents; }
+  #fieldPanel { order: 1; } .form { order: 2; } #dbPanel { order: 3; }
+}
+.m-only { display: none !important; }
+@media (max-width: 640px) {
+  .restab .m-only { display: block !important; }
+  .restab .d-only { display: none; }
+  table.pplines.restab { min-width: 0; }
+}
+table.restab.nocmt th:last-child, table.restab.nocmt td.cmt { display: none; }
+.resinfo span b { margin-left: 3px; }
+button.ofmore { all: unset; cursor: pointer; color: var(--accent); font-weight: 700; font-size: 11.5px; white-space: nowrap; }
+button.ofmore:hover { text-decoration: underline; }
+/* comparison: grouped headings, pinned horse column, show/hide groups */
+.cmpchips { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; font-size: 12px; color: var(--muted); margin: 0 0 6px; }
+.cmpchips label { display: inline-flex; gap: 4px; align-items: center; color: var(--ink); cursor: pointer; }
+.cmp tr.grp th { text-align: center; border-bottom: 1px solid var(--rule); color: var(--ink); font-size: 10px; letter-spacing: .12em; padding: 6px 7px 3px; cursor: default; }
+.cmp tr.grp th.g { border-left: 1px solid var(--rule); }
+.cmp .stick { position: sticky; background: var(--sheet); z-index: 2; }
+.cmp .s0 { left: 0; min-width: 40px; }
+.cmp .s1 { left: 40px; box-shadow: 1px 0 0 var(--rule); }
+.cmp td.best.stick { background: var(--hilite); }
+/* home */
+.homeintro { margin: 0 0 12px; color: var(--muted); }
+.homegrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.homecard { background: var(--sheet); border: 1px solid var(--rule-strong); padding: 10px 12px; }
+.homecard .hh { font-weight: 900; text-transform: uppercase; font-size: 14px; font-stretch: 105%; line-height: 1.15; }
+.homecard .hh small { display: block; text-transform: none; font-weight: 600; color: var(--muted); font-size: 12px; font-stretch: 90%; margin-top: 2px; }
+.homecard .hr { display: grid; gap: 3px; margin-top: 8px; font-size: 13px; }
+.homecard .hr .hlink, .homecard .lead .hlink { text-align: left; }
+.homecard .lead { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; font-size: 13px; }
+.homecard .lead ol { margin: 4px 0 0; padding-left: 18px; }
+.homecard .muted { color: var(--muted); }
 @media print {
   .rail, .tabs .opts, .masthead .meta, footer.colophon, .btn { display: none !important; }
   .desk { display: block; padding: 0; }
@@ -342,7 +389,7 @@ footer.colophon a { color: var(--paper) !important; }
 
 <main class="desk">
   <aside class="rail" aria-label="Race card">
-    <section class="panel" aria-labelledby="h-field">
+    <section class="panel" id="fieldPanel" aria-labelledby="h-field">
       <h2 id="h-field">The field <span class="count" id="fieldCount"></span></h2>
       <label class="f">Season
         <select id="season"></select>
@@ -365,7 +412,7 @@ footer.colophon a { color: var(--paper) !important; }
       </div>
     </section>
 
-    <section class="panel" aria-labelledby="h-db">
+    <section class="panel" id="dbPanel" aria-labelledby="h-db">
       <h2 id="h-db">Database search</h2>
       <div class="search dbsearch">
         <input type="search" id="dbq" placeholder="Horse, rider, trainer, owner or race" autocomplete="off" aria-label="Search the database" aria-controls="dbres">
@@ -439,13 +486,34 @@ const daysBetween = (a, b) => Math.round((toDate(b) - toDate(a)) / 864e5);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const money = n => n ? '$' + n.toLocaleString('en-US') : '';
 const kpurse = n => !n ? '' : n >= 1000 ? (Math.round(n / 100) / 10).toString().replace(/\.0$/, '') + 'k' : String(n);
-function riderShort(n) {
-  n = (n || '').replace(/,/g, '').trim(); if (!n) return '';
-  let p = n.split(/\s+/); let suf = '';
+// Rider names (2026-10-18): one style everywhere. Narrow form lines: "C. Tierney"; results, search: full name.
+// Handles "Conor Tierney", chart-only "D Gilligan", and At The Races' "Hayes CD" / "C D Hayes".
+function riderParts(n) {
+  n = (n || '').replace(/,/g, ' ').replace(/\s+/g, ' ').trim(); if (!n) return null;
+  let p = n.split(' '), suf = '';
   if (p.length > 2 && /^(jr\.?|sr\.?|ii|iii|iv)$/i.test(p[p.length - 1])) suf = ' ' + p.pop();
-  if (p.length === 1) return p[0];
-  const last = p.pop(); return last + suf + ' ' + p.map(x => x[0]).filter(Boolean).join('');
+  if (p.length === 1) return { first: [], last: p[0] + suf };
+  if (p.length === 2 && /^[A-Z]{1,3}$/.test(p[1]) && !/^[A-Z]{1,3}$/.test(p[0])) return { first: p[1].split(''), last: p[0] + suf };  // "Hayes CD"
+  const last = p.pop(); return { first: p, last: last + suf };
 }
+function riderShort(n) {
+  const r = riderParts(n); if (!r) return '';
+  return r.first.length ? r.first.map(x => x.replace(/\.$/, '')[0].toUpperCase() + '.').join(' ') + ' ' + r.last : r.last;
+}
+function riderFull(n) {
+  const r = riderParts(n); if (!r) return '';
+  return r.first.map(x => /^[A-Za-z]$/.test(x) ? x.toUpperCase() + '.' : x).join(' ') + (r.first.length ? ' ' : '') + r.last;
+}
+const pl = (n, w, ws) => `${n} ${n === 1 ? w : (ws || w + 's')}`;
+// Going and margins: short codes in the form lines (with the word on hover), words in headers and results.
+const GOING_WORD = { fm: 'firm', hd: 'hard', fst: 'fast', gf: 'good to firm', gd: 'good', yg: 'yielding', yl: 'yielding', sf: 'soft', hy: 'heavy', my: 'muddy', sly: 'sloppy', sl: 'slow', frz: 'frozen', sn: 'snow', wf: 'wet fast', gs: 'good to soft', ys: 'yielding to soft' };
+const goingWord = g => GOING_WORD[(g || '').toLowerCase()] || g || '';
+const goingCell = g => g ? `<span title="${esc(goingWord(g))}">${esc(g)}</span>` : '—';
+const MARGIN_WORD = { hd: 'head', nk: 'neck', nse: 'nose', no: 'nose', sh: 'short head', shd: 'short head', dh: 'dead heat', dist: 'distance', dis: 'distance', ds: 'distance' };
+const marginWord = m => MARGIN_WORD[(m || '').toLowerCase().replace(/\.$/, '')] || m || '';
+// Foreign courses get a three-letter code like the American lines; the full name shows on hover.
+const courseAbbr = n => { n = (n || '').trim(); if (!n) return ''; const w = n.replace(/[^A-Za-z ]/g, '').split(/\s+/)[0] || n; return w.slice(0, 3).toUpperCase(); };
+const trkCell = (code, full) => `<span title="${esc(full || '')}">${esc(code)}</span>`;
 function years(h) {
   const ss = h[10]; if (!ss.length) return '';
   const a = Math.floor(R[ss[ss.length - 1][0]][0] / 10000), b = Math.floor(R[ss[0][0]][0] / 10000);
@@ -460,7 +528,7 @@ function histCard(ri) {
     const h = H[e[0]], st = h[10].find(x => x[0] === ri);
     return { name: h[1], hid: h[0], fin: e[1], jockey: st ? V[st[3]] : '', amateur: !!(st && st[4]), wt: st ? st[2] : null,
              trainer: st ? V[st[5]] : '', owner: st ? V[st[6]] : '', med: '' };
-  }).sort((a, b) => a.name.localeCompare(b.name));        // program numbers aren't in the charts: listed A-Z, not in finish order
+  });   // program numbers aren't in the charts: a resulted race is numbered in finishing order (raceEnt is sorted by finish)
   ents.forEach((e, k) => { e.pp = String(k + 1); });
   const x = { c: { id: 'hist', meet: C[r[1]][1], date: r[0], status: 'result', source: 'Archive', course: r[1] },
               r: { no: r[2], div: 0, post: '', name: raceTitle(r), type: V[r[4]] !== raceTitle(r) ? V[r[4]] : '', purse: r[16], dist: V[r[9]] || V[r[10]],
@@ -607,7 +675,7 @@ function addHorse(id) {
 function loadRaceField(i) {
   state.look = null;
   state.pick = null;
-  state.entry = { card: 'hist', race: i }; state.asOf = R[i][0];
+  state.entry = { card: 'hist', race: i }; state.asOf = R[i][0]; state.fieldOpen = null;
   state.horses = histCard(i).r.entries.map(e => e.hid);
   state.example = null; commit();
 }
@@ -616,7 +684,7 @@ function loadEntryRace(cardId, ri) {
   state.pick = null;
   const c = (D.cards || []).find(x => x.id === cardId); if (!c) return;
   const r = c.races[ri];
-  state.entry = { card: cardId, race: ri }; state.asOf = null;
+  state.entry = { card: cardId, race: ri }; state.asOf = null; state.fieldOpen = null;
   state.horses = r.entries.filter(e => e.hid != null && byId.has(e.hid)).map(e => e.hid);
   state.example = null; commit();
 }
@@ -687,14 +755,16 @@ function chooseRace(v) {
 }
 function renderField() {
   const ul = $('#field');
-  $('#fieldCount').textContent = state.horses.length ? state.horses.length + (state.horses.length === 1 ? ' horse' : ' horses') : '';
+  const n = state.horses.length, open = fieldIsOpen();
+  $('#fieldCount').innerHTML = !n ? '' : narrow() ? `<button type="button" class="foldbtn" data-fieldtoggle="1" aria-expanded="${open}">${pl(n, 'horse')} ${open ? '▴' : '▾'}</button>` : pl(n, 'horse');
+  $('#fieldPanel').classList.toggle('folded', !open);
   const x = entryCtx();
   const extra = x ? x.r.entries.filter(e => e.hid == null || !byId.has(e.hid)) : [];
-  const extraHtml = extra.map(e => `<li class="noform"><span>${pgmBadge(e.pp)}</span><div><div class="nm">${esc(e.name)}</div><div class="sub">No starts in the archive${e.jockey ? ' · ' + esc(e.jockey) : ''}${e.trainer ? ' · ' + esc(e.trainer) : ''}</div></div><div></div></li>`).join('');
+  const extraHtml = extra.map(e => `<li class="noform"><span>${pgmBadge(e.pp)}</span><div><div class="nm">${esc(e.name)}</div><div class="sub">No starts in the archive${e.jockey ? ' · ' + esc(riderFull(e.jockey)) : ''}${e.trainer ? ' · ' + esc(e.trainer) : ''}</div></div><div></div></li>`).join('');
   if (!state.horses.length && !extra.length) { ul.innerHTML = '<li class="field-empty">No horses yet. Choose a race card above, or search to add the entries for the race.</li>'; return; }
   const items = state.horses.map((id, i) => {
     const h = H[byId.get(id)];
-    return `<li><span>${pgm(i)}</span><div><div class="nm">${esc(h[1])}</div><div class="sub">${h[10].length ? years(h) + ' · ' + h[10].length + ' starts' : 'No jump starts in the archive' + (eqLife(h) && eqLife(h).st ? ' · Equibase ' + eqLife(h).st + ' starts' : '')}${h[6] ? ' · by ' + esc(h[6]) : ''}</div></div>
+    return `<li><span>${pgm(i)}</span><div><button type="button" class="nm fieldjump" data-jump="${h[0]}" title="Show ${esc(h[1])}">${esc(h[1])}</button><div class="sub">${h[10].length ? years(h) + ' · ' + pl(h[10].length, 'start') : 'No jump starts in the archive' + (eqLife(h) && eqLife(h).st ? ' · Equibase ' + pl(eqLife(h).st, 'start') : '')}${h[6] ? ' · by ' + esc(h[6]) : ''}</div></div>
       <div class="ops"><button class="btn small ghost" data-up="${i}" aria-label="Move ${esc(h[1])} up" ${i ? '' : 'disabled'}>↑</button><button class="btn small ghost" data-rm="${i}" aria-label="Remove ${esc(h[1])}">✕</button></div></li>`;
   });
   // with a race card loaded, horses with no starts sit in program order among the rest
@@ -720,7 +790,7 @@ function search(q) {
   box.innerHTML = hits.length ? hits.map((i, k) => {
     const h = H[i]; const inField = state.horses.includes(h[0]);
     return `<button type="button" data-h="${i}" class="${k === 0 ? 'on' : ''}"><span class="nm">${esc(h[1])}${inField ? ' · in the field' : ''}</span>
-      <span class="sub">${years(h)} · ${h[10].length} starts · ${recTxt(rec(h)).replace(/^\d+ /, '')}${h[6] ? ' · ' + esc(h[6]) + ' – ' + esc(h[7] || '?') : ''}</span></button>`;
+      <span class="sub">${years(h)} · ${pl(h[10].length, 'start')} ·${recTxt(rec(h)).replace(/^\d+ /, '')}${h[6] ? ' · ' + esc(h[6]) + ' – ' + esc(h[7] || '?') : ''}</span></button>`;
   }).join('') : '<div class="empty">No horse by that name in the archive.</div>';
   box.hidden = false;
 }
@@ -773,11 +843,17 @@ function personHead(p, rows, main) {
           ${topHorse ? `<div><span class="k">Most wins with:</span> ${esc(topHorse[0])} (${topHorse[1]})</div>` : ''}
           ${topCourse ? `<div><span class="k">Most wins at:</span> ${esc(topCourse[0])} (${topCourse[1]})</div>` : ''}
           ${best ? `<div><span class="k">Richest win:</span> ${best}</div>` : ''}
+          ${(() => { const n = partnersOf(p).length; return n ? `<div><span class="k">Also an owner in</span> <button class="hlink" data-partners="${p.v}">${pl(n, 'partnership')}</button></div>` : ''; })()}
         </div></div>
       <div class="recwrap">${recbox}</div>
     </div></article>`;
 }
 const ROLE = { r: 'Rider', t: 'Trainer', o: 'Owner' };
+function partnersOf(p) {
+  if (!p || !p.n) return []; const ln = p.n.toLowerCase(), out = [];
+  for (const [v, q] of PEOPLE) if (v !== p.v && q.o.length && /\s(and|&)\s|,/i.test(q.n || '') && (q.n || '').toLowerCase().includes(ln)) out.push(v);
+  return out;
+}
 let dbHits = [], dbOn = 0;
 function raceQuery(q) {
   const m = q.match(/^(.*?)[\s,]*(?:race|r)\s*#?\s*(\d{1,2})$/i);
@@ -812,12 +888,17 @@ function dbSearch(q) {
   const out = [];
   const hs = []; for (let i = 0; i < lowerNames.length && hs.length < 60; i++) if (H[i][0] >= 0 && lowerNames[i].includes(lq)) hs.push(i);
   hs.sort((a, b) => (lowerNames[b].startsWith(lq) - lowerNames[a].startsWith(lq)) || (b10(b) - b10(a)));
-  hs.slice(0, 5).forEach(i => out.push({ t: 'horse', label: H[i][1], sub: `Horse · ${years(H[i])} · ${H[i][10].length} starts`, look: { t: 'horse', id: H[i][0] } }));
+  hs.slice(0, 5).forEach(i => out.push({ t: 'horse', label: H[i][1], sub: `Horse · ${years(H[i])} · ${pl(H[i][10].length, 'start')}`, look: { t: 'horse', id: H[i][0] } }));
   const ps = []; for (const [v, p] of PEOPLE) if (p.n && p.n.toLowerCase().includes(lq)) ps.push([v, p]);
   ps.sort((a, b) => (b[1].n.toLowerCase().startsWith(lq) - a[1].n.toLowerCase().startsWith(lq)) || ((b[1].r.length + b[1].t.length + b[1].o.length) - (a[1].r.length + a[1].t.length + a[1].o.length)));
   const pr = [];
-  ps.slice(0, 8).forEach(([v, p]) => ['r', 't', 'o'].forEach(k => { if (p[k].length) pr.push({ t: 'person', label: `${p.n} — ${ROLE[k]}`, sub: `${ROLE[k]} · ${p[k].length} start${p[k].length === 1 ? '' : 's'} · ${p['w' + k]} win${p['w' + k] === 1 ? '' : 's'} · all-time #${p['rk' + k]}`, look: { t: 'person', v, k }, n: p[k].length }); }));
+  // ownership partnerships ("R & K Racing LLC and Keri Brion") are listed under the person, not as rows of their own
+  const isPartner = n => /\s(and|&)\s|,/i.test(n);
+  const direct = ps.filter(([, p]) => !isPartner(p.n));
+  const partners = ps.filter(([, p]) => isPartner(p.n));
+  (direct.length ? direct : ps).slice(0, 8).forEach(([v, p]) => ['r', 't', 'o'].forEach(k => { if (p[k].length) pr.push({ t: 'person', label: `${p.n} — ${ROLE[k]}`, sub: `${pl(p[k].length, 'start')} · ${pl(p['w' + k], 'win')} · all-time #${p['rk' + k]}`, look: { t: 'person', v, k }, n: p[k].length }); }));
   out.push(...pr.slice(0, 8));
+  if (direct.length && partners.length) out.push({ t: 'partners', label: `${pl(partners.length, 'ownership partnership')} including “${q}”`, sub: 'Owner · listed together', look: { t: 'partners', q, vs: partners.map(x => x[0]) } });
   out.push(...raceQuery(q));
   dbHits = out; dbOn = 0;
   box.innerHTML = out.length ? out.map((x, k) => `<button type="button" data-db="${k}" class="${k === 0 ? 'on' : ''}"><span class="nm">${esc(x.label)}</span><span class="sub">${esc(x.sub)}</span></button>`).join('')
@@ -859,11 +940,21 @@ function renderLook() {
         ['Fin', x => fin2num(x.st[1]), x => `<td>${finCell(x.st, x.r)}</td>`],
         ['Fld', x => raceEnt[x.ri].length, x => `<td class="n">${raceEnt[x.ri].length}</td>`, 1],
         ['Wt', x => x.st[2] || 0, x => `<td class="n">${x.st[2] || ''}</td>`, 1],
-        ['Rider', x => (V[x.st[3]] || '').toLowerCase(), x => `<td>${esc(V[x.st[3]] || '')}</td>`],
+        ['Rider', x => (V[x.st[3]] || '').toLowerCase(), x => `<td>${esc(riderFull(V[x.st[3]]))}</td>`],
         ['Trainer', x => (V[x.st[5]] || '').toLowerCase(), x => `<td>${esc(V[x.st[5]] || '')}</td>`],
         ['Earned', x => x.st[7] || 0, x => `<td class="n">${x.st[7] ? money(x.st[7]) : ''}</td>`, 1],
       ];
       body = personHead(p, rows, K) + `<div class="pad">${sortTable(rows, cols, 200)}</div>`;
+    } else if (L.t === 'partners') {
+      head = `Ownership partnerships · ${esc(L.q)}`;
+      const rows = L.vs.map(v => PEOPLE.get(v)).filter(Boolean).map(p => ({ p, last: Math.max(...p.o.map(([hi, si]) => R[H[hi][10][si][0]][0])) }));
+      const cols = [
+        ['Partnership', x => x.p.n.toLowerCase(), x => `<td><button class="hlink" data-person="${x.p.v}" data-role="o">${esc(x.p.n)}</button></td>`],
+        ['Starts', x => x.p.o.length, x => `<td class="n">${x.p.o.length}</td>`, 1],
+        ['Wins', x => x.p.wo || 0, x => `<td class="n">${x.p.wo || 0}</td>`, 1],
+        ['Last start', x => x.last, x => `<td>${fmtDate(x.last)}</td>`],
+      ];
+      body = `<div class="pad">${sortTable(rows, cols, 200)}</div>`;
     } else if (L.t === 'race') {
       const set = L.cs ? new Set(L.cs) : null;
       const ids = []; R.forEach((r, i) => { if (set ? set.has(r[1]) && (L.no == null || r[2] === L.no) : raceTitle(r) === L.title) ids.push(i); });
@@ -875,18 +966,19 @@ function renderLook() {
         ['Race', x => x.r[2] || 0, x => `<td>${raceLink(x.ri, 'R' + (x.r[2] || '?') + ' ' + esc(raceTitle(x.r) || ''))}</td>`],
         ['Type', x => KIND[x.r[6]] || '', x => `<td>${esc(KIND[x.r[6]] || '')}</td>`],
         ['Dist', x => x.r[8] || 0, x => `<td>${esc(V[x.r[9]] || '')}</td>`],
-        ['Going', x => x.r[11] || '', x => `<td>${esc(x.r[11] || '')}</td>`],
+        ['Going', x => x.r[11] || '', x => `<td>${goingCell(x.r[11])}</td>`],
         ['Ran', x => raceEnt[x.ri].length, x => `<td class="n">${raceEnt[x.ri].length}</td>`, 1],
         ['Winner', x => x.wh ? x.wh[1].toLowerCase() : '', x => `<td>${x.wh ? horseLink(x.wh[0], esc(x.wh[1])) : '—'}</td>`],
         ['Wt', x => x.ws && x.ws[2] || 0, x => `<td class="n">${x.ws && x.ws[2] || ''}</td>`, 1],
-        ['Rider', x => x.ws ? (V[x.ws[3]] || '').toLowerCase() : '', x => `<td>${x.ws ? esc(V[x.ws[3]] || '') : ''}</td>`],
+        ['Rider', x => x.ws ? (V[x.ws[3]] || '').toLowerCase() : '', x => `<td>${x.ws ? esc(riderFull(V[x.ws[3]])) : ''}</td>`],
         ['Time', x => x.r[13] || 1e9, x => `<td>${esc(x.r[12] || '')}</td>`],
         ['Purse', x => x.r[16] || 0, x => `<td class="n">${x.r[16] ? money(x.r[16]) : ''}</td>`, 1],
       ];
       body = `<div class="pad"><div class="resinfo">${ids.length} race${ids.length === 1 ? '' : 's'} on record · click a race for the full result · click a column heading to sort</div>${sortTable(rows, cols, 300)}</div>`;
     }
   } finally { state.asOf = keepAs; }
-  $('#notice').innerHTML = `<div class="racehead"><div><div class="t">${head}</div><div class="c">Database search</div></div><div class="par"><button class="btn small" data-closelook="1">Back to the race card</button></div></div>`;
+  const lk = L.t === 'horse' ? `horse=${L.id}` : L.t === 'person' ? (() => { const p = PEOPLE.get(L.v), K = L.k || ['r', 't', 'o'].filter(k => p[k].length).sort((a, b) => p[b].length - p[a].length)[0]; return `person=${p.n}~${K}`; })() : '';
+  $('#notice').innerHTML = `<div class="racehead"><div><div class="t">${head}</div><div class="c">Database search</div></div><div class="par"><button class="btn small" data-closelook="1">${state.horses.length || entryCtx() ? 'Back to the race card' : 'Close'}</button>${lk ? `<br><button type="button" class="copylink" data-copy="${esc(lk)}">Copy link</button>` : ''}</div></div>`;
   return `<div class="sheet">${body}</div>`;
 }
 // sortable table for search results: cols = [title, sortKey(row), cell(row), numeric?]; state.lookSort = {i, dir}
@@ -914,8 +1006,9 @@ function wireDb() {
   $('#dbres').addEventListener('click', e => { const b = e.target.closest('button[data-db]'); if (b) openLook(dbHits[+b.dataset.db].look); });
   document.addEventListener('click', e => {
     if (!e.target.closest('.dbsearch')) $('#dbres').hidden = true;
-    const t = e.target.closest('[data-race],[data-look-horse],[data-closelook],[data-lookall],[data-add],[data-person]'); if (!t) return;
-    if (t.dataset.person) openLook({ t: 'person', v: +t.dataset.person, k: t.dataset.role });
+    const t = e.target.closest('[data-race],[data-look-horse],[data-closelook],[data-lookall],[data-add],[data-person],[data-partners]'); if (!t) return;
+    if (t.dataset.partners) { const p = PEOPLE.get(+t.dataset.partners); openLook({ t: 'partners', q: p.n, vs: partnersOf(p) }); }
+    else if (t.dataset.person) openLook({ t: 'person', v: +t.dataset.person, k: t.dataset.role });
     else if (t.dataset.race) openPastRace(+t.dataset.race);
     else if (t.dataset.lookHorse) openLook({ t: 'horse', id: +t.dataset.lookHorse });
     else if (t.dataset.closelook) { state.look = null; commit(); }
@@ -953,16 +1046,26 @@ function lineMatch(r) {
     going: state.going && goingOf(r) === state.going,
   };
 }
+// Order of finish: big fields show the first four, then this horse and any horse in today's field, with "+N more".
+// items: [{ html, keep }]
+function ofinList(items) {
+  const full = items.map(x => x.html).join(' ');
+  if (items.length <= 8) return full;
+  let out = '', lastK = -1;
+  items.forEach((x, k) => { if (k < 4 || x.keep) { if (k !== lastK + 1) out += '<span class="muted">…</span> '; out += (k >= 4 ? `<span class="muted">${k + 1}.</span>` : '') + x.html + ' '; lastK = k; } });
+  const n = items.length - items.filter((x, k) => k < 4 || x.keep).length;
+  if (lastK < items.length - 1) out += '<span class="muted">…</span> ';
+  return `<span class="ofs">${out}<button type="button" class="ofmore">+${n} more</button></span><span class="off" hidden>${full} <button type="button" class="ofmore less">less</button></span>`;
+}
 function topFinishers(ri, selfIdx) {
-  const ents = raceEnt[ri]; const r = R[ri];
-  return ents.map((e, k) => {
+  const ents = raceEnt[ri];
+  return ofinList(ents.map(e => {
     const h = H[e[0]]; const pos = state.horses.indexOf(h[0]);
     let nm = esc(h[1]);
     if (e[0] === selfIdx) nm = `<span class="me">${nm}</span>`; else if (pos >= 0) nm = `<mark>${nm}</mark>${pgm(pos, true)}`;
-    const sup = '';
     const code = /^\d+$/.test(e[1]) && +e[1] > 0 ? '' : `<span class="muted">(${esc(e[1] || '—')})</span>`;
-    return `${nm}${e[2] ? e[2] : ''}${sup}${code}`;
-  }).join(' ');
+    return { html: `${nm}${e[2] ? e[2] : ''}${code}`, keep: e[0] === selfIdx || pos >= 0 };
+  }));
 }
 const srcName = s => s === 'CEO' ? 'American Point-to-Point' : s;
 function finCell(s, r) {
@@ -1010,29 +1113,30 @@ function ppBlock(id, pos) {
     prev = r[0];
     const hl = (on, html) => on ? `<mark>${html}</mark>` : html;
     const pv = parVar(r);
-    const cls = esc(V[r[3]]) + (r[16] ? ' ' + kpurse(r[16]) : '') + (r[17] ? '' : '<span class="ptp" title="Not NSA-sanctioned (point-to-point)">PtP</span>');
+    const cls = esc(V[r[3]]) + (r[16] ? ' $' + kpurse(r[16]) : '') + (r[17] ? '' : '<span class="ptp" title="Not NSA-sanctioned (point-to-point)">PtP</span>');
     const amat = s[4] ? '<sup title="Amateur rider">A</sup>' : '';
     body += `<tr>
-      <td class="trk">${fmtDate(r[0])}<sup>${r[2] || ''}</sup>${hl(m.trk, esc(C[r[1]][0]))}</td>
-      <td>${hl(m.going, esc(r[11] || '—'))}</td>
+      <td class="trk">${fmtDate(r[0])}<sup>${r[2] || ''}</sup>${hl(m.trk, trkCell(C[r[1]][0], C[r[1]][1]))}</td>
+      <td>${hl(m.going, goingCell(r[11]))}</td>
       <td>${hl(m.dist, esc(V[r[9]]) || '?')}<span class="sf" title="${SURF_TITLE[r[7]] || ''}">${SURF[r[7]] || '?'}</span></td>
       <td>${r[12] ? esc(r[12]) : '<span class="muted">—</span>'}</td>
       <td class="n">${pv == null ? '' : sgn(pv)}</td>
       <td title="${esc(V[r[4]])}${V[r[5]] ? ' · ' + esc(V[r[5]]) : ''}">${hl(m.kind, cls)}</td>
       <td class="n">${raceEnt[s[0]].length}</td>
       <td>${finCell(s, r)}</td>
-      <td class="n">${r[14] ? esc(r[14]) : ''}</td>
-      <td>${esc(riderShort(V[s[3]]))}${amat}</td>
+      <td class="n">${r[14] ? `<span title="${esc(marginWord(r[14]))}">${esc(r[14])}</span>` : ''}</td>
+      <td title="${esc(riderFull(V[s[3]]))}">${esc(riderShort(V[s[3]]))}${amat}</td>
       <td class="n">${s[2] || ''}</td>
       <td class="n">${s[7] ? kpurse(s[7]) : ''}</td>
       <td class="ofin">${topFinishers(s[0], hi)}</td></tr>`;
   });
+  const ppId = h[0];
   const more = ss.length - shown.length;
   const lastLine = lastRace ? `Last start <b>${fmtDate(lastRace[0])}</b> ${esc(C[lastRace[1]][1])}${isoToInt(state.date) ? ` · ${daysBetween(lastRace[0], td)} days before today's race` : ''}` : '';
-  return `<article class="pp">
+  return `<article class="pp" id="pp-${ppId}">
     <div class="pp-head">
       <div>${pgm(pos)}</div>
-      <div><div class="pp-name">${esc(h[1])}${sameName ? `<small>${years(h)}</small>` : ''}</div>
+      <div><div class="pp-name">${esc(h[1])}${sameName ? `<small>${years(h)}</small>` : ''}<button type="button" class="copylink" data-copy="horse=${ppId}" title="Copy a link to this horse">Copy link</button></div>
         <div class="pp-id">
           ${todayLine(id)}
           <div>${esc(ident)}${h[6] ? ` · <span class="k">Sire:</span> ${esc(h[6])}` : ''}</div>
@@ -1065,12 +1169,12 @@ function flatSection(h, hi) {
     const sup = l[9] ? `<sup>${esc(l[9])}</sup>` : '';
     return `<tr>
       <td class="trk">${fmtDate(l[0])}<sup>${l[2] || ''}</sup>${esc(l[1])}</td>
-      <td>${esc(l[6] || '—')}</td>
+      <td>${goingCell(l[6])}</td>
       <td>${esc(V[l[4]]) || '?'}<span class="sf" title="${{t: 'Turf', d: 'Dirt', aw: 'All-weather'}[l[5]] || ''}">${esc(l[5] || '?')}</span></td>
-      <td>${esc(V[l[3]])}${l[16] && !/\dk$/.test(V[l[3]]) ? ' ' + kpurse(l[16]) : ''}</td>
+      <td>${esc(V[l[3]])}${l[16] && !/\dk$/.test(V[l[3]]) ? ' $' + kpurse(l[16]) : ''}</td>
       <td class="n">${l[7] || ''}</td>
       <td><span class="fin${win ? ' win' : ''}">${esc(fin)}${sup}</span></td>
-      <td>${esc(riderShort(V[l[13]]))}</td>
+      <td title="${esc(riderFull(V[l[13]]))}">${esc(riderShort(V[l[13]]))}</td>
       <td class="n">${l[12] || ''}</td>
       <td class="n">${l[17] ? kpurse(l[17]) : ''}</td>
       <td class="n fig">${l[10] || ''}</td>
@@ -1092,17 +1196,17 @@ function trackSection(h) {
     const win = l[8] === '1';
     const res = win ? (l[10] ? `by ${esc(l[11] || '?')} from ${esc(l[10])}` : '') : (l[10] ? `${esc(l[10])} won${l[11] ? ` · btn ${esc(l[11])}` : ''}` : '');
     return `<tr>
-      <td class="trk">${fmtDate(l[0])} ${esc(l[1])}</td>
+      <td class="trk">${fmtDate(l[0])} ${trkCell(courseAbbr(l[1]), l[1])}</td>
       <td>${esc(l[3] || '—')}</td>
       <td>${esc(l[2])}</td>
       <td>${esc(l[4])}${l[5] ? ' ' + esc(l[5]) : ''}</td>
       <td class="n">${l[9] || ''}</td>
       <td><span class="fin${win ? ' win' : ''}">${esc(l[8] || '—')}</span></td>
-      <td class="n">${esc(l[11] || '')}</td>
-      <td>${esc(riderShort(l[13] || ''))}</td>
+      <td class="n">${l[11] ? `<span title="${esc(marginWord(l[11]))}">${esc(l[11])}</span>` : ''}</td>
+      <td title="${esc(riderFull(l[13] || ''))}">${esc(riderShort(l[13] || ''))}</td>
       <td class="n">${esc(l[6] || '')}</td>
       <td class="n">${esc(l[7] || '')}</td>
-      <td class="ofin">${l[14] && l[14].length ? l[14].map(f => (f[3] ? `<span class="me">${esc(f[1])}</span>` : esc(f[1])) + (f[2] || '') + (/^\d+$/.test(f[0]) ? '' : `<span class="muted">(${esc(f[0])})</span>`)).join(' ') : res}</td></tr>`;
+      <td class="ofin">${l[14] && l[14].length ? ofinList(l[14].map(f => ({ html: (f[3] ? `<span class="me">${esc(f[1])}</span>` : esc(f[1])) + (f[2] || '') + (/^\d+$/.test(f[0]) ? '' : `<span class="muted">(${esc(f[0])})</span>`), keep: !!f[3] }))) : res}</td></tr>`;
   }).join('');
   return `<div class="flathead"><b>British, Irish &amp; French form</b><span>${runs.length} run${runs.length > 1 ? 's' : ''} under Rules, ${wins} win${wins === 1 ? '' : 's'} · results courtesy of <a href="${esc(x[0])}" target="_blank" rel="noopener">At The Races</a>${more > 0 ? ` · ${more} more not shown` : ''}</span></div>
     <div class="lines"><table class="pplines">
@@ -1119,16 +1223,16 @@ function pointSection(h, key, title, credit) {
   const rows = shown.map(l => {
     const fin = l[5] || '—', win = fin === '1';
     return `<tr>
-      <td class="trk">${fmtDate(l[0])} ${esc(l[1] || '')}</td>
+      <td class="trk">${fmtDate(l[0])} ${trkCell(courseAbbr(l[1]), l[1])}</td>
       <td>${esc(l[3] || '—')}</td>
       <td>${esc(l[2] || '')}</td>
       <td class="n">${l[4] || ''}</td>
       <td><span class="fin${win ? ' win' : ''}">${esc(fin)}</span></td>
       <td class="n">${win ? '' : esc(l[6] || '')}</td>
-      <td>${esc(l[7] || '')}</td>
+      <td title="${esc(riderFull(l[7] || ''))}">${esc(riderShort(l[7] || ''))}</td>
       <td class="n">${l[10] || ''}</td>
       <td>${esc(l[8] || '')}</td>
-      <td class="ofin">${(l[9] || []).map(f => { const me = f[1].toLowerCase() === (h[1] || '').toLowerCase(); const nm = me ? `<span class="me">${esc(f[1])}</span>` : esc(f[1]); return nm + (f[2] || '') + (/^\d+$/.test(f[0]) ? '' : `<span class="muted">(${esc(f[0])})</span>`); }).join(' ')}</td></tr>`;
+      <td class="ofin">${ofinList((l[9] || []).map(f => { const me = f[1].toLowerCase() === (h[1] || '').toLowerCase(); const nm = me ? `<span class="me">${esc(f[1])}</span>` : esc(f[1]); return { html: nm + (f[2] || '') + (/^\d+$/.test(f[0]) ? '' : `<span class="muted">(${esc(f[0])})</span>`), keep: me }; }))}</td></tr>`;
   }).join('');
   return `<div class="flathead"><b>${title}</b><span>${runs.length} run${runs.length > 1 ? 's' : ''}, ${wins} win${wins === 1 ? '' : 's'} · results courtesy of <a href="${esc(x[0])}" target="_blank" rel="noopener">${credit}</a>${more > 0 ? ` · ${more} more not shown` : ''}</span></div>
     <div class="lines"><table class="pplines">
@@ -1143,7 +1247,7 @@ function histResult(ri) {
 function todayLine(id) {
   const e = entryOf(id); if (!e) return '';
   const bits = [], x = entryCtx(), label = x && x.r.hist != null ? 'Race day' : 'Today';
-  if (e.jockey) bits.push(`<b>${esc(e.jockey)}</b>${e.amateur ? ' (A)' : ''}`);
+  if (e.jockey) bits.push(`<b>${esc(riderFull(e.jockey))}</b>${e.amateur ? ' (A)' : ''}`);
   if (e.wt) bits.push(`<b>${e.wt}</b> lb${e.allow ? ' (' + '*'.repeat(e.allow) + ' allowance)' : ''}`);
   if (e.med) bits.push(e.med.startsWith('L') ? 'Lasix' + (e.med === 'L1' ? ' first time' : e.med === 'LX' ? ' off (LX)' : '') : esc(e.med));
   if (e.claim) bits.push('Clm ' + money(e.claim));
@@ -1162,13 +1266,13 @@ function renderResults(ri) {
     const win = e[1] === '1';
     const line = `<tr class="resrow${open ? ' open' : ''}">
       <td><span class="fin${win ? ' win' : ''}">${esc(e[1] || '—')}</span></td>
-      <td class="l"><button class="hlink" data-pick="${h[0]}" aria-expanded="${open}">${esc(h[1])}</button><span class="s">${h[5] ? (y - h[5]) + 'yo ' : ''}${esc(h[4] || '')}${h[6] ? ' · ' + esc(h[6]) : ''}${h[7] ? '–' + esc(h[7]) : ''}</span></td>
+      <td class="l"><button class="hlink" data-pick="${h[0]}" aria-expanded="${open}">${esc(h[1])}</button><span class="s">${h[5] ? (y - h[5]) + 'yo ' : ''}${esc(h[4] || '')}${h[6] ? ' · ' + esc(h[6]) : ''}${h[7] ? '–' + esc(h[7]) : ''}</span><span class="s m-only">${[riderFull(V[st[3]]) + (st[4] ? ' (A)' : ''), V[st[5]] ? 'Tr ' + V[st[5]] : '', st[7] ? money(st[7]) : ''].filter(Boolean).map(esc).join(' · ')}</span></td>
       <td class="n">${st[2] || ''}</td>
-      <td>${esc(V[st[3]] || '')}${st[4] ? ' (A)' : ''}</td>
-      <td>${esc(V[st[5]] || '')}</td>
-      <td>${esc(V[st[6]] || '')}</td>
-      <td class="n">${st[7] ? money(st[7]) : ''}</td>
-      <td class="cmt">${esc(V[st[8]] || '')}</td></tr>`;
+      <td class="d-only">${esc(riderFull(V[st[3]]))}${st[4] ? ' (A)' : ''}</td>
+      <td class="d-only">${esc(V[st[5]] || '')}</td>
+      <td class="d-only">${esc(V[st[6]] || '')}</td>
+      <td class="n d-only">${st[7] ? money(st[7]) : ''}</td>
+      <td class="cmt d-only">${esc(V[st[8]] || '')}</td></tr>`;
     return line + (open && idx >= 0 ? `<tr class="ppopen"><td colspan="8">${ppNow(h[0], idx)}</td></tr>` : '');
   }).join('');
   const vx = D.video && D.video[ri];
@@ -1181,10 +1285,78 @@ function renderResults(ri) {
     <div class="replaynote">Aerial footage of the day by ${xs[0][3] ? `<a href="${esc(xs[0][3])}" target="_blank" rel="noopener">${esc(xs[0][2])}</a>` : esc(xs[0][2])}.</div></div>`;
   if (yt.length) player += `<div class="replaybar"><div class="replaybtns">${yt.map((y, k) => btn(`https://www.youtube.com/watch?v=${encodeURIComponent(y[0])}`, 'Watch the Race Replay' + (yt.length > 1 ? ` <small>${esc(y[1] || 'Video ' + (k + 1))}</small>` : ''))).join('')}</div>
     <div class="replaynote">The whole day of racing is on one film; this race is one of several on it.<br>From the <a href="https://www.youtube.com/@TGSF-Archives" target="_blank" rel="noopener">Temple Gwathmey Steeplechase Foundation archive</a> on YouTube.</div></div>`;
-  return `${player}<div class="sheet"><div class="pad"><div class="resinfo">Going <b>${esc(r[11] || '—')}</b> · time <b>${esc(r[12] || '—')}</b> · won by <b>${esc(r[14] || '—')}</b> · ${raceEnt[ri].length} ran${r[16] ? ' · purse ' + money(r[16]) : ''}</div>
-    <table class="pplines restab"><thead><tr><th>Fin</th><th class="l">Horse</th><th class="n" title="Weight carried, lbs">Wt</th><th>Rider</th><th>Trainer</th><th>Owner</th><th class="n">Earned</th><th>Comment</th></tr></thead>
+  const anyCmt = raceEnt[ri].some(e => { const st = H[e[0]][10].find(x => x[0] === ri); return st && V[st[8]]; });
+  return `${player}<div class="sheet"><div class="pad"><div class="resinfo"><span>Going <b>${esc(goingWord(r[11]) || '—')}</b></span><span>Time <b>${esc(r[12] || '—')}</b></span><span>Won by <b>${esc(marginWord(r[14]) || '—')}</b></span><span>${raceEnt[ri].length} ran</span>${r[16] ? `<span>Purse <b>${money(r[16])}</b></span>` : ''}</div>
+    <table class="pplines restab${anyCmt ? '' : ' nocmt'}"><thead><tr><th>Fin</th><th class="l">Horse</th><th class="n" title="Weight carried, lbs">Wt</th><th class="d-only">Rider</th><th class="d-only">Trainer</th><th class="d-only">Owner</th><th class="n d-only">Earned</th><th class="d-only">Comment</th></tr></thead>
     <tbody>${rows}</tbody></table></div>
     <div class="legend"><span>Click a horse to open his past performances through today; click again to close</span><span>(A) amateur rider</span></div></div>`;
+}
+function firstReplay(ri) {
+  const vx = D.video && D.video[ri]; if (!vx) return '';
+  if (vx.v) { const p = String(vx.v).split('/'); return `https://vimeo.com/${encodeURIComponent(p[0])}${p[1] ? '/' + encodeURIComponent(p[1]) : ''}`; }
+  if (vx.y && vx.y.length) return `https://www.youtube.com/watch?v=${encodeURIComponent(vx.y[0][0])}`;
+  if (vx.x && vx.x.length) return vx.x[0][0];
+  return '';
+}
+// ---------------------------------------------------------------- links (Copy link / opening a shared link)
+// #race=20261017-FH-5 · #card=<card id>~<race index> · #horse=<horse id> · #person=<name>~<r|t|o>
+function raceLinkKey(x) {
+  if (x.r.hist != null) { const r = R[x.r.hist]; return `race=${r[0]}-${C[r[1]][0]}-${r[2]}`; }
+  return `card=${x.c.id}~${state.entry ? state.entry.race : 0}`;
+}
+function copyLink(key) {
+  const url = location.href.split('#')[0] + '#' + key;
+  const done = () => toast('Link copied');
+  const fail = () => { window.prompt('Copy this link:', url); };
+  try { navigator.clipboard.writeText(url).then(done, fail); } catch (e) { fail(); }
+}
+function openLink(hash) {
+  const m = /^#(race|card|horse|person)=(.+)$/.exec(decodeURIComponent(hash || '')); if (!m) return false;
+  const [, t, v] = m;
+  if (t === 'race') {
+    const p = /^(\d{8})-(.+)-(\d+)$/.exec(v); if (!p) return false;
+    const ri = R.findIndex(r => r[0] === +p[1] && C[r[1]][0] === p[2] && r[2] === +p[3]); if (ri < 0) return false;
+    openPastRace(ri); return true;
+  }
+  if (t === 'card') {
+    const k = v.lastIndexOf('~'), id = v.slice(0, k), ri = +v.slice(k + 1);
+    if (!(D.cards || []).some(c => c.id === id)) return false;
+    $('#season').value = 'up'; fillRaceCards(); rcSel = `card|${id}|${ri}`; loadEntryRace(id, ri); return true;
+  }
+  if (t === 'horse') { const id = resolveId(+v); if (id == null) return false; state.look = { t: 'horse', id }; commit(); return true; }
+  if (t === 'person') {
+    buildPeople(); const k = v.lastIndexOf('~'), name = v.slice(0, k), role = v.slice(k + 1);
+    for (const [pv, p] of PEOPLE) if (p.n === name && p[role] && p[role].length) { state.look = { t: 'person', v: pv, k: role }; commit(); return true; }
+    return false;
+  }
+  return false;
+}
+// ---------------------------------------------------------------- home (nothing loaded yet)
+function renderHome() {
+  $('.tabs').hidden = true;
+  const parts = [];
+  for (const c of (D.cards || [])) parts.push(`<div class="homecard"><div class="hh">${esc(c.meet)}<small>${esc(dayName(c.date))} · ${c.status === 'final' ? 'Final' : 'Provisional'} entries</small></div>
+    <div class="hr">${c.races.map((r, i) => `<button type="button" class="hlink" data-card="${esc(c.id)}~${i}">R${r.no}${r.div ? '/' + r.div : ''} ${esc(r.name || r.type || '')}</button>`).join('')}</div></div>`);
+  // the four most recent meet-days with results
+  const seen = new Set(), recent = [];
+  for (let i = R.length - 1; i >= 0 && recent.length < 4; i--) {
+    if (raceEnt[i].length < 2) continue; const k = R[i][0] + '|' + R[i][1];
+    if (!seen.has(k)) { seen.add(k); recent.push(k); }
+  }
+  for (const k of recent) {
+    const [d, c] = k.split('|').map(Number);
+    const ids = []; R.forEach((r, i) => { if (r[0] === d && r[1] === c && raceEnt[i].length >= 2) ids.push(i); });
+    ids.sort((a, b) => R[a][2] - R[b][2]);
+    parts.push(`<div class="homecard"><div class="hh">${esc(C[c][1])}<small>${esc(dayName(d))} · results</small></div>
+      <div class="hr">${ids.map(i => `<button type="button" class="hlink" data-race="${i}">R${R[i][2]} ${esc(raceTitle(R[i]) || '')}</button>`).join('')}</div></div>`);
+  }
+  // season leaders by wins
+  const y = Math.floor(R[R.length - 1][0] / 10000);
+  const tally = { 3: new Map(), 5: new Map() };
+  for (const h of H) for (const s of h[10]) { if (s[1] !== '1' || Math.floor(R[s[0]][0] / 10000) !== y) continue; for (const k of [3, 5]) if (s[k]) tally[k].set(s[k], (tally[k].get(s[k]) || 0) + 1); }
+  const top = (k, role) => [...tally[k]].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([v, n]) => `<li><button type="button" class="hlink" data-person="${v}" data-role="${role}">${esc(role === 'r' ? riderFull(V[v]) : V[v])}</button> <span class="muted">${n}</span></li>`).join('');
+  const leaders = `<div class="homecard"><div class="hh">${y} leaders<small>wins in American jump races</small></div><div class="lead"><div><b>Riders</b><ol>${top(3, 'r')}</ol></div><div><b>Trainers</b><ol>${top(5, 't')}</ol></div></div></div>`;
+  return `<div class="home"><p class="homeintro">Choose a race from <b>Race card</b>, type a horse's name to build a field, or search the database. Recent meets are one click away:</p><div class="homegrid">${parts.join('')}${leaders}</div></div>`;
 }
 function renderPP() {
   return state.horses.map((id, i) => ppBlock(id, i)).join('') +
@@ -1222,47 +1394,54 @@ const recScore = o => o && o.st ? o.w * 3 + o.p * 2 + o.s + (o.w / o.st) : -1;
 const COLS = [
   { k: 'pos', t: '#', l: true, v: m => m.pos, show: m => pgm(m.pos) },
   { k: 'name', t: 'Horse', l: true, v: m => m.h[1], show: m => `<span class="hn">${esc(m.h[1])}</span><span class="s">${years(m.h)}${m.h[5] ? ' · foaled ' + m.h[5] : ''}</span>` },
-  { k: 'allr', t: 'All races', v: m => recScore(m.all), show: m => recCell(m.all), best: 'max' },
-  { k: 'st', t: 'US jump starts', v: m => m.life.st, best: 'max' },
-  { k: 'rec', t: 'W-P-S', v: m => recScore(m.life), show: m => `${m.life.w}-${m.life.p}-${m.life.s}`, best: 'max' },
-  { k: 'win', t: 'Win%', v: m => m.winPct, show: m => m.life.st ? pct(m.winPct) : '—', best: 'max' },
-  { k: 'itm', t: 'ITM%', v: m => m.itmPct, show: m => m.life.st ? pct(m.itmPct) : '—', best: 'max' },
-  { k: 'earn', t: 'Earnings', v: m => m.life.e, show: m => money(m.life.e) || '$0', best: 'max' },
-  { k: 'yr', t: 'This year', v: m => recScore(m.yr), show: m => recCell(m.yr), best: 'max' },
-  { k: 'tim', t: 'Timber', v: m => recScore(m.tim), show: m => recCell(m.tim), best: 'max' },
-  { k: 'hdl', t: 'Hurdle', v: m => recScore(m.hdl), show: m => recCell(m.hdl), best: 'max' },
-  { k: 'abj', t: 'Hdl/Ch abroad', v: m => recScore(m.abroadJ), show: m => m.abroadJ.st ? recCell(m.abroadJ) : '—', best: 'max' },
-  { k: 'p2p', t: 'P-to-P abroad', v: m => recScore(m.p2p), show: m => m.p2p.st ? recCell(m.p2p) : '—', best: 'max' },
-  { k: 'flat', t: 'Flat', v: m => recScore(m.flatAll), show: m => m.flatAll.st ? recCell(m.flatAll) : '—', best: 'max' },
-  { k: 'fig', t: 'Best fig', v: m => m.fig || -1, show: m => m.fig ? `${m.fig}<span class="s">Equibase</span>` : '—', best: 'max' },
-  { k: 'days', t: 'Days off', v: m => m.days ?? 1e9, show: m => m.days == null ? '—' : `${m.days}<span class="s">${fmtDate(m.lastAny[0])} ${m.lastAny[2] === 'US' && m.last ? esc(C[m.last[1]][0]) : {FL: 'flat', RF: 'flat abroad', RJ: 'abroad', PP: 'point-to-point abroad'}[m.lastAny[2]] || ''}</span>` },
-  { k: 'form', t: 'Last 5', l: true, v: m => m.form, show: m => m.form },
-  { k: 'comp', t: 'Finished', v: m => m.life.st ? m.compPct : -1, show: m => !m.life.st ? '—' : `${pct(m.compPct)}<span class="s">${m.errs} fell/unseated · ${m.pu} PU</span>`, best: 'max' },
-  { k: 'var', t: 'Best Par±', v: m => m.bestVar ?? 1e9, show: m => m.bestVar == null ? '—' : sgn(m.bestVar), best: 'min' },
-  { k: 'conn', t: 'Last rider / trainer', l: true, v: m => m.rider, show: m => `${esc(m.rider || '—')}<span class="s">${esc(m.trainer || '')}</span>` },
+  { k: 'allr', g: 'rec', t: 'All races', v: m => recScore(m.all), show: m => recCell(m.all), best: 'max' },
+  { k: 'st', g: 'rec', t: 'US jump starts', v: m => m.life.st, best: 'max' },
+  { k: 'rec', g: 'rec', t: 'W-P-S', v: m => recScore(m.life), show: m => `${m.life.w}-${m.life.p}-${m.life.s}`, best: 'max' },
+  { k: 'win', g: 'rec', t: 'Win%', v: m => m.winPct, show: m => m.life.st ? pct(m.winPct) : '—', best: 'max', min3: 1 },
+  { k: 'itm', g: 'rec', t: 'ITM%', v: m => m.itmPct, show: m => m.life.st ? pct(m.itmPct) : '—', best: 'max', min3: 1 },
+  { k: 'earn', g: 'rec', t: 'Earnings', v: m => m.life.e, show: m => money(m.life.e) || '$0', best: 'max' },
+  { k: 'yr', g: 'rec', t: 'This year', v: m => recScore(m.yr), show: m => recCell(m.yr), best: 'max' },
+  { k: 'tim', g: 'type', t: 'Timber', v: m => recScore(m.tim), show: m => recCell(m.tim), best: 'max' },
+  { k: 'hdl', g: 'type', t: 'Hurdle', v: m => recScore(m.hdl), show: m => recCell(m.hdl), best: 'max' },
+  { k: 'flat', g: 'type', t: 'Flat', v: m => recScore(m.flatAll), show: m => m.flatAll.st ? recCell(m.flatAll) : '—', best: 'max' },
+  { k: 'abj', g: 'type', t: 'Hdl/Ch abroad', v: m => recScore(m.abroadJ), show: m => m.abroadJ.st ? recCell(m.abroadJ) : '—', best: 'max' },
+  { k: 'p2p', g: 'type', t: 'P-to-P abroad', v: m => recScore(m.p2p), show: m => m.p2p.st ? recCell(m.p2p) : '—', best: 'max' },
+  { k: 'fig', g: 'form', t: 'Best fig', v: m => m.fig || -1, show: m => m.fig ? `${m.fig}<span class="s">Equibase</span>` : '—', best: 'max' },
+  { k: 'days', g: 'form', t: 'Days off', v: m => m.days ?? 1e9, show: m => m.days == null ? '—' : `${m.days}<span class="s">${fmtDate(m.lastAny[0])} ${m.lastAny[2] === 'US' && m.last ? esc(C[m.last[1]][0]) : {FL: 'flat', RF: 'flat abroad', RJ: 'abroad', PP: 'point-to-point abroad'}[m.lastAny[2]] || ''}</span>` },
+  { k: 'form', g: 'form', t: 'Last 5', l: true, v: m => m.form, show: m => m.form },
+  { k: 'comp', g: 'form', t: 'Finished', v: m => m.life.st ? m.compPct : -1, show: m => !m.life.st ? '—' : `${pct(m.compPct)}<span class="s">${m.errs} fell/unseated · ${m.pu} PU</span>`, best: 'max', min3: 1 },
+  { k: 'var', g: 'form', t: 'Best Par±', v: m => m.bestVar ?? 1e9, show: m => m.bestVar == null ? '—' : sgn(m.bestVar), best: 'min' },
+  { k: 'conn', g: 'form', t: 'Last rider / trainer', l: true, v: m => m.rider, show: m => `${esc(riderFull(m.rider) || '—')}<span class="s">${esc(m.trainer || '')}</span>` },
 ];
+const CMP_GROUPS = [['rec', 'Record'], ['type', 'By race type'], ['form', 'Recent form']];
 function renderCmp() {
   const ms = state.horses.map((id, i) => metrics(id, i));
+  const hide = new Set(state.cmpHide || []);
+  const cols = COLS.filter(c => !c.g || !hide.has(c.g));
   const bests = {};
-  for (const c of COLS) if (c.best && ms.length > 1) {
-    const vals = ms.map(c.v).filter(v => v !== -1 && v !== 1e9);
+  for (const c of cols) if (c.best && ms.length > 1) {
+    const vals = ms.filter(m => !c.min3 || m.life.st >= 3).map(c.v).filter(v => v !== -1 && v !== 1e9);   // % columns need 3+ starts
     if (vals.length) bests[c.k] = c.best === 'max' ? Math.max(...vals) : Math.min(...vals);
   }
   if (state.sort) {
     const c = COLS.find(x => x.k === state.sort.k);
     ms.sort((a, b) => { const x = c.v(a), y = c.v(b); const r = typeof x === 'string' ? x.localeCompare(y) : x - y; return state.sort.dir * r; });
   }
-  const head = COLS.map(c => {
+  const groupRow = '<tr class="grp"><th class="stick s0"></th><th class="stick s1"></th>' + CMP_GROUPS.filter(([g]) => !hide.has(g)).map(([g, t]) => `<th colspan="${cols.filter(c => c.g === g).length}" class="g">${t}</th>`).join('') + '</tr>';
+  const head = cols.map(c => {
     const t = typeof c.t === 'function' ? c.t() : c.t;
     const s = state.sort && state.sort.k === c.k ? ` aria-sort="${state.sort.dir > 0 ? 'ascending' : 'descending'}"` : '';
-    return `<th class="${c.l ? 'l' : ''}" data-sort="${c.k}"${s} tabindex="0">${esc(t)}${s ? (state.sort.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`;
+    const st = c.k === 'pos' ? ' stick s0' : c.k === 'name' ? ' stick s1' : '';
+    return `<th class="${c.l ? 'l' : ''}${st}" data-sort="${c.k}"${s} tabindex="0">${esc(t)}${s ? (state.sort.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`;
   }).join('');
-  const rows = ms.map(m => '<tr>' + COLS.map(c => {
-    const v = c.v(m); const best = c.k in bests && v === bests[c.k] && v !== 0;
-    return `<td class="${c.l ? 'l' : ''}${best ? ' best' : ''}">${c.show ? c.show(m) : esc(v)}</td>`;
+  const rows = ms.map(m => '<tr>' + cols.map(c => {
+    const v = c.v(m); const best = c.k in bests && v === bests[c.k] && v !== 0 && (!c.min3 || m.life.st >= 3);
+    const st = c.k === 'pos' ? ' stick s0' : c.k === 'name' ? ' stick s1' : '';
+    return `<td class="${c.l ? 'l' : ''}${best ? ' best' : ''}${st}">${c.show ? c.show(m) : esc(v)}</td>`;
   }).join('') + '</tr>').join('');
-  return `<div class="sheet"><table class="cmp"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>
-    <div class="legend"><span><mark>highlighted</mark> best in the field</span><span>Records read starts: wins-seconds-thirds</span><span>All races = American jump races + flat + British/Irish/French races under Rules + point-to-points abroad; This year, Days off and Last 5 count them all (Last 5: <sub>f</sub> flat, <sub>a</sub> hurdle/chase abroad, <sub>p</sub> point-to-point abroad)</span><span>W-P-S, Win%, ITM%, Earnings, Finished and Par± are American jump races</span><span>Finished = completed the course (not fell, unseated, refused, ran out or pulled up)</span><span>Click a column to sort</span></div></div>`;
+  const chips = `<div class="cmpchips"><span>Show:</span>${CMP_GROUPS.map(([g, t]) => `<label><input type="checkbox" data-cmpgroup="${g}"${hide.has(g) ? '' : ' checked'}> ${t}</label>`).join('')}</div>`;
+  return `${chips}<div class="sheet"><table class="cmp"><thead>${groupRow}<tr>${head}</tr></thead><tbody>${rows}</tbody></table>
+    <div class="legend"><span><mark>highlighted</mark> best in the field (Win%, ITM% and Finished need 3+ starts)</span><span>Records read starts: wins-seconds-thirds</span><span>All races = American jump races + flat + British/Irish/French races under Rules + point-to-points abroad; This year, Days off and Last 5 count them all (Last 5: <sub>f</sub> flat, <sub>a</sub> hurdle/chase abroad, <sub>p</sub> point-to-point abroad)</span><span>W-P-S, Win%, ITM%, Earnings, Finished and Par± are American jump races</span><span>Finished = completed the course (not fell, unseated, refused, ran out or pulled up)</span><span>Click a column to sort</span></div></div>`;
 }
 
 // ---------------------------------------------------------------- head to head
@@ -1293,7 +1472,7 @@ function renderH2H() {
     shared.slice(0, 60).map(([ri, m]) => {
       const r = R[ri]; const w = raceEnt[ri].find(e => e[1] === '1');
       const wn = w ? (pos.has(w[0]) ? `<mark>${esc(H[w[0]][1])}</mark>${pgm(pos.get(w[0]), true)}` : esc(H[w[0]][1])) : '—';
-      return `<tr><td class="trk">${fmtDate(r[0])}<sup>${r[2] || ''}</sup>${esc(C[r[1]][0])}</td><td>${esc(r[11] || '—')}</td><td>${esc(V[r[9]])}<span class="sf">${SURF[r[7]] || '?'}</span></td><td>${esc(V[r[3]])}${r[16] ? ' ' + kpurse(r[16]) : ''}</td><td class="n">${raceEnt[ri].length}</td>` +
+      return `<tr><td class="trk">${fmtDate(r[0])}<sup>${r[2] || ''}</sup>${trkCell(C[r[1]][0], C[r[1]][1])}</td><td>${goingCell(r[11])}</td><td>${esc(V[r[9]])}<span class="sf">${SURF[r[7]] || '?'}</span></td><td title="${esc(raceTitle(r) || '')}">${esc(V[r[3]])}${r[16] ? ' $' + kpurse(r[16]) : ''}</td><td class="n">${raceEnt[ri].length}</td>` +
         idx.map((_, i) => { const f = m.get(i); return `<td>${f == null ? '' : finCell([0, f], r)}</td>`; }).join('') + `<td>${wn}</td></tr>`;
     }).join('') + '</tbody></table>';
   return `<div class="sheet"><h3 class="section-title">Head to head</h3><div class="pad">${matrix}</div>
@@ -1313,11 +1492,12 @@ function render() {
       ${x.r.conditions ? `<div class="cond">${esc(x.r.conditions)}</div>` : ''}
       ${parSummary(x.c.course, x.r.sc, x.r.f, x.r.hist != null ? goingOf(R[x.r.hist]) : '')}
 </div>
-      <div class="par">${x.r.hist != null ? `<span class="status final">Result</span><br>click a horse for his past performances through today` : `<span class="status ${x.c.status}">${x.c.status === 'final' ? 'Final' : 'Provisional'} entries</span><br>${esc(srcName(x.c.source))} overnight · fetched ${esc(x.c.fetched || '')}`}</div></div>` : '';
+      <div class="par">${x.r.hist != null ? `<span class="status final">Result</span>${firstReplay(x.r.hist) ? ` <a class="hdrreplay" href="${esc(firstReplay(x.r.hist))}" target="_blank" rel="noopener">▶ Replay</a>` : ''}` : `<span class="status ${x.c.status}">${x.c.status === 'final' ? 'Final' : 'Provisional'} entries</span><br>${esc(srcName(x.c.source))} overnight · fetched ${esc(x.c.fetched || '')}`}<br><button type="button" class="copylink" data-copy="${esc(raceLinkKey(x))}">Copy link</button></div></div>` : '';
   const v = $('#view');
+  document.body.classList.toggle('has-race', !!(x || state.look || state.horses.length));
   if (state.look) { buildPeople(); $('.tabs').hidden = true; v.innerHTML = renderLook(); return; }
   $('.tabs').hidden = false; $('#tab-cmp').hidden = $('#tab-h2h').hidden = false; $('#tab-pp').textContent = 'Past performances';
-  if (!state.horses.length) { v.innerHTML = x ? '<div class="empty-form">None of the entries in this race have starts in the archive yet.</div>' : '<div class="empty-form"><b>Build the field.</b><br>Choose a race from <b>Race card</b> to load its entries, type a horse\'s name to add each runner yourself, or load the field from a past race. Their past performances appear here side by side, with a comparison sheet and head-to-head record.</div>'; return; }
+  if (!state.horses.length) { $('#ppOpts').hidden = true; v.innerHTML = x ? '<div class="empty-form">None of the entries in this race have starts in the archive yet.</div>' : renderHome(); return; }
   const past = x && x.r.hist != null;
   $('#tab-pp').textContent = past ? 'Results' : 'Past performances';
   $('#tab-cmp').hidden = $('#tab-h2h').hidden = !!past;          // a resulted race: the result is the answer
@@ -1328,11 +1508,30 @@ function render() {
 }
 let pickScroll = false;
 document.addEventListener('click', ev => {
-  const yp = ev.target.closest('button.ytpart[data-yt]');
-  if (yp) { const f = document.getElementById('ytframe'); if (f) f.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(yp.dataset.yt) + '?rel=0&autoplay=1'; return; }
+  const cp = ev.target.closest('[data-copy]'); if (cp) { copyLink(cp.dataset.copy); return; }
+  const om = ev.target.closest('button.ofmore'); if (om) { const td = om.closest('td'); td.querySelector('.ofs').hidden = !om.classList.contains('less'); td.querySelector('.off').hidden = om.classList.contains('less'); return; }
+  const cd = ev.target.closest('[data-card]'); if (cd) { const v = cd.dataset.card, k = v.lastIndexOf('~'); openLink('#card=' + v); return; }
+  const fj = ev.target.closest('[data-jump]'); if (fj) { jumpTo(+fj.dataset.jump); return; }
+  const ft = ev.target.closest('[data-fieldtoggle]'); if (ft) { state.fieldOpen = !fieldIsOpen(); commit(); return; }
   const b = ev.target.closest('button.hlink[data-pick]'); if (!b) return;
   const id = +b.dataset.pick; state.pick = state.pick === id ? null : id; pickScroll = state.pick != null; commit();
 });
+document.addEventListener('change', ev => {
+  const g = ev.target.closest('[data-cmpgroup]'); if (!g) return;
+  const hide = new Set(state.cmpHide || []); if (g.checked) hide.delete(g.dataset.cmpgroup); else hide.add(g.dataset.cmpgroup);
+  if (hide.size === CMP_GROUPS.length) { hide.delete(g.dataset.cmpgroup); g.checked = true; }   // keep at least one group
+  state.cmpHide = [...hide]; commit();
+});
+// Field list: click a horse to jump to his card (or open his line in a result)
+function jumpTo(id) {
+  const x = entryCtx();
+  if (x && x.r.hist != null) { state.tab = 'pp'; state.pick = id; pickScroll = true; commit(); return; }
+  if (state.tab !== 'pp' || state.look) { state.look = null; state.tab = 'pp'; commit(); }
+  const el = document.getElementById('pp-' + id); if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+// Phones: once a race is loaded the field list folds to one line ("7 horses ▾") so the Form comes first
+const narrow = () => window.matchMedia('(max-width: 900px)').matches;
+const fieldIsOpen = () => state.fieldOpen != null ? state.fieldOpen : !(narrow() && state.horses.length);
 function commit() { store.set('spp.current', state); render(); }
 
 let toastT;
@@ -1444,9 +1643,11 @@ function fromHash() {
   $('#meta').innerHTML = `Results through <b>${fmtDate(R[R.length - 1][0])}</b>`;
   initControls(); initEntries(); wire(); renderSaved();
   const fromLink = fromHash(), saved = store.get('spp.current', null);
-  if (saved) { state.tab = saved.tab || 'pp'; state.nLines = saved.nLines || 10; state.lineFilter = saved.lineFilter || 'all'; state.flat = saved.flat || 'show'; }
-  if (fromLink) applyCard(fromLink);
-  else { syncControls(); render(); }
+  if (saved) { state.tab = saved.tab || 'pp'; state.nLines = saved.nLines || 10; state.lineFilter = saved.lineFilter || 'all'; state.flat = saved.flat || 'show'; state.cmpHide = saved.cmpHide || []; }
+  syncControls();
+  if (!openLink(location.hash)) { if (fromLink) applyCard(fromLink); else render(); }
+  window.addEventListener('hashchange', () => openLink(location.hash));
+  let wasNarrow = narrow(); window.addEventListener('resize', () => { if (narrow() !== wasNarrow) { wasNarrow = narrow(); renderField(); } });
   if (false) {
     // example: the most recent sanctioned timber race with 5+ starters
     let ex = -1;
