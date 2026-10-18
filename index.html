@@ -1176,6 +1176,9 @@ function renderResults(ri) {
   const btn = (href, label) => `<a class="replaybtn" href="${href}" target="_blank" rel="noopener"><span class="play">▶</span>${label}</a>`;
   let player = '';
   if (vm) player += `<div class="replaybar">${btn(`https://vimeo.com/${encodeURIComponent(vm[0])}${vm[1] ? '/' + encodeURIComponent(vm[1]) : ''}`, 'Watch the Race Replay')}<div class="replaynote">NSA Films on Vimeo</div></div>`;
+  const xs = vx && vx.x ? vx.x : [];
+  if (xs.length) player += `<div class="replaybar"><div class="replaybtns">${xs.map(x => btn(esc(x[0]), 'Watch the ' + esc(x[1]))).join('')}</div>
+    <div class="replaynote">Aerial footage of the day by ${xs[0][3] ? `<a href="${esc(xs[0][3])}" target="_blank" rel="noopener">${esc(xs[0][2])}</a>` : esc(xs[0][2])}.</div></div>`;
   if (yt.length) player += `<div class="replaybar"><div class="replaybtns">${yt.map((y, k) => btn(`https://www.youtube.com/watch?v=${encodeURIComponent(y[0])}`, 'Watch the Race Replay' + (yt.length > 1 ? ` <small>${esc(y[1] || 'Video ' + (k + 1))}</small>` : ''))).join('')}</div>
     <div class="replaynote">The whole day of racing is on one film; this race is one of several on it.<br>From the <a href="https://www.youtube.com/@TGSF-Archives" target="_blank" rel="noopener">Temple Gwathmey Steeplechase Foundation archive</a> on YouTube.</div></div>`;
   return `${player}<div class="sheet"><div class="pad"><div class="resinfo">Going <b>${esc(r[11] || '—')}</b> · time <b>${esc(r[12] || '—')}</b> · won by <b>${esc(r[14] || '—')}</b> · ${raceEnt[ri].length} ran${r[16] ? ' · purse ' + money(r[16]) : ''}</div>
