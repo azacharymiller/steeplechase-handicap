@@ -444,7 +444,7 @@ button.ofmore:hover { text-decoration: underline; }
 </main>
 
 <footer class="colophon">
-  <div class="notes">Data: American Point-to-Point and NSA steeplechase results, 1966 to date. Irish point-to-point form courtesy of <a href="https://p2p.ie/" target="_blank" rel="noopener">p2p.ie</a>; British point-to-point form courtesy of <a href="https://gbpointing.co.uk/" target="_blank" rel="noopener">GB Pointing</a>; British, Irish and French track form courtesy of <a href="https://www.attheraces.com/" target="_blank" rel="noopener">At The Races</a>. <b>Win Mgn</b> is the winner's margin over the second horse, the only margin the charts record; beaten lengths for other finishers are not recorded. <b>Par±</b> compares a race's winning time with the average winning time for the same course, type and distance (three or more races needed); minus is faster.</div>
+  <div class="notes">Data: American Point-to-Point and NSA steeplechase results, 1966 to date. Irish point-to-point form courtesy of <a href="https://p2p.ie/" target="_blank" rel="noopener">p2p.ie</a>; British point-to-point form courtesy of <a href="https://gbpointing.co.uk/" target="_blank" rel="noopener">GB Pointing</a>; British, Irish, French and (for horses new to our records) American track form courtesy of <a href="https://www.attheraces.com/" target="_blank" rel="noopener">At The Races</a>. <b>Win Mgn</b> is the winner's margin over the second horse, the only margin the charts record; beaten lengths for other finishers are not recorded. <b>Par±</b> compares a race's winning time with the average winning time for the same course, type and distance (three or more races needed); minus is faster.</div>
   <div class="copy">© 2026 drf-steeplechase</div>
 </footer>
 
@@ -659,7 +659,7 @@ function eqLife(h) {
 // Every start on file for a horse, from all sources, newest first: [date, finish, source]
 // sources: US = American jump race (archive), FL = flat (Equibase/Timbercreek lines), RJ/RF = races under Rules
 // abroad over jumps / on the flat (At The Races), PP = British/Irish point-to-point (GB Pointing, p2p.ie).
-const isJumpRace = t => /Hdl|Ch\b|Ch$|Chase|Hurdle/i.test(t || '');
+const isJumpRace = t => /Hdl|Ch\b|Ch$|Chase|Hurdle|\bJump\b/i.test(t || '');
 function allStarts(h) {
   const out = [], lim = d => !state.asOf || d < state.asOf;
   for (const s of h[10]) out.push([R[s[0]][0], s[1] || '', 'US', R[s[0]][6]]);
@@ -1240,7 +1240,7 @@ function trackSection(h) {
       <td class="n">${esc(l[7] || '')}</td>
       <td class="ofin">${l[14] && l[14].length ? ofinList(l[14].map(f => ({ html: (f[3] ? `<span class="me">${esc(f[1])}</span>` : esc(f[1])) + (f[2] || '') + (/^\d+$/.test(f[0]) ? '' : `<span class="muted">(${esc(f[0])})</span>`), keep: !!f[3] }))) : res}</td></tr>`;
   }).join('');
-  return `<div class="flathead"><b>British, Irish &amp; French form</b><span>${runs.length} run${runs.length > 1 ? 's' : ''} under Rules, ${wins} win${wins === 1 ? '' : 's'} · results courtesy of <a href="${esc(x[0])}" target="_blank" rel="noopener">At The Races</a>${more > 0 ? ` · ${more} more not shown` : ''}</span></div>
+  return `<div class="flathead"><b>Track form under Rules</b><span>${runs.length} run${runs.length > 1 ? 's' : ''} under Rules, ${wins} win${wins === 1 ? '' : 's'} · results courtesy of <a href="${esc(x[0])}" target="_blank" rel="noopener">At The Races</a>${more > 0 ? ` · ${more} more not shown` : ''}</span></div>
     <div class="lines"><table class="pplines">
     <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th>Class</th><th class="n" title="Runners">Fld</th><th>Fin</th><th class="n" title="Lengths: the winner's margin, or the distance beaten">Mgn</th><th>Jockey</th><th class="n" title="Weight carried, lbs">Wt</th><th class="n" title="Official rating">OR</th><th>Order of finish</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
