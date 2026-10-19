@@ -630,6 +630,19 @@ function hv(h) {
   }
   return v;
 }
+// 2026-10-19 (Zach): "Flat" and "Flat*" double-counted flat races at NSA meets that Equibase also charts.
+// An Equibase line on the same date as an archive start is that same race (a horse can't run twice in a day),
+// so it is counted once, from the archive.
+function eqExtraLines(h) {
+  const e = eq(h); if (!e) return [];
+  const dates = new Set(h[10].map(s => R[s[0]][0]));
+  return e[2].filter(l => !dates.has(l[0]));
+}
+function flatMerged(h) {
+  const o = rec(h, r => r[6] === 'F');
+  for (const l of eqExtraLines(h)) { o.st++; o.e += l[17] || 0; if (l[8] === '1') o.w++; else if (l[8] === '2') o.p++; else if (l[8] === '3') o.s++; }
+  return o;
+}
 function flatRec(h) {
   const e = eq(h), o = { st: 0, w: 0, p: 0, s: 0, e: 0 };
   if (!e) return o;
@@ -649,8 +662,8 @@ function eqLife(h) {
 const isJumpRace = t => /Hdl|Ch\b|Ch$|Chase|Hurdle/i.test(t || '');
 function allStarts(h) {
   const out = [], lim = d => !state.asOf || d < state.asOf;
-  for (const s of h[10]) out.push([R[s[0]][0], s[1] || '', 'US']);
-  const e = eq(h); if (e) for (const l of e[2]) if (lim(l[0])) out.push([l[0], l[8] || '', 'FL']);
+  for (const s of h[10]) out.push([R[s[0]][0], s[1] || '', 'US', R[s[0]][6]]);
+  for (const l of eqExtraLines(h)) if (lim(l[0])) out.push([l[0], l[8] || '', 'FL']);
   const t = D.track && D.track[h[0]]; if (t) for (const l of t[1]) if (lim(l[0])) out.push([l[0], l[8] || '', isJumpRace(l[4]) ? 'RJ' : 'RF']);
   for (const k of ['irish', 'british']) { const x = D[k] && D[k][h[0]]; if (x) for (const l of x[1]) if (lim(l[0])) out.push([l[0], l[5] || '', 'PP']); }
   return out.sort((a, b) => b[0] - a[0]);
@@ -1103,12 +1116,13 @@ function ppBlock(id, pos) {
     [String(y0), rec(h, r => Math.floor(r[0] / 10000) === y0), false, true],
   ];
   if (state.course >= 0) rows.push([C[state.course][0], rec(h, r => r[1] === state.course), true, true]);
-  for (const k of ['T', 'H', 'F']) rows.push([KIND[k], rec(h, r => r[6] === k), state.kind === k, k === 'T']);
+  for (const k of ['T', 'H']) rows.push([KIND[k], rec(h, r => r[6] === k), state.kind === k, k === 'T']);
+  rows.push(['Flat', flatMerged(h), state.kind === 'F', false]);
   if (state.kind && state.furlongs) rows.push(['Dist', rec(h, r => r[6] === state.kind && near(r[8], state.furlongs)), true, true]);
-  const fr = flatRec(h); if (fr.st) rows.push(['Flat*', fr, false, true]);
-  const el = eqLife(h); if (el && el.st) rows.push(['Equibase', el, false, !fr.st]);
+
+  const el = eqLife(h); if (el && el.st) rows.push(['Equibase', el, false, true]);
   for (const g of ['firm', 'good', 'soft']) rows.push([g === 'soft' ? 'Yld/Sft' : g[0].toUpperCase() + g.slice(1), rec(h, r => goingOf(r) === g), state.going === g, g === 'firm' && !(state.kind && state.furlongs)]);
-  if (!h[10].length) { rows = rows.filter(r => r[0] === 'Flat*' || r[0] === 'Equibase').map(r => [r[0], r[1], false, false]); if (!rows.length) rows = [['Life', rec(h), false, false]]; }
+  if (!h[10].length) { rows = rows.filter(r => (r[0] === 'Flat' && r[1].st) || r[0] === 'Equibase').map(r => [r[0], r[1], false, false]); if (!rows.length) rows = [['Life', rec(h), false, false]]; }
   const recbox = `<table class="recbox" aria-label="Record">${rows.map(([l, o, on, sep]) =>
     `<tr class="${on ? 'on' : ''}${sep ? ' sep' : ''}"><td>${esc(l)}</td><td>${o.st}</td><td>${o.w}</td><td>${o.p}</td><td>${o.s}</td><td>${money(o.e) || '$0'}</td></tr>`).join('')}</table>`;
   const ent = entryOf(id);
@@ -1379,7 +1393,7 @@ function renderHome() {
 }
 function renderPP() {
   return state.horses.map((id, i) => ppBlock(id, i)).join('') +
-    `<div class="legend" style="border:0;padding:0"><span><mark>highlighted</mark> a horse in this field</span><span><b>T</b> timber · <b>H</b> hurdles/national fences · <b>B</b> brush · <b>f</b> flat · <b>X</b> special course</span><span><b>Win Mgn</b>: the winner's margin over the second horse (lengths)</span><span>Time: superscript = fifths</span><span>Flat form: race-by-race lines cover 2021–23 and Aug 2024 on; yearly Equibase records cover 2000 on. Flat* counts only the flat lines on file.</span></div>`;
+    `<div class="legend" style="border:0;padding:0"><span><mark>highlighted</mark> a horse in this field</span><span><b>T</b> timber · <b>H</b> hurdles/national fences · <b>B</b> brush · <b>f</b> flat · <b>X</b> special course</span><span><b>Win Mgn</b>: the winner's margin over the second horse (lengths)</span><span>Time: superscript = fifths</span><span>Flat form: race-by-race lines cover 2021–23 and Aug 2024 on; yearly Equibase records cover 2000 on. Flat counts each flat race once: archive flat races plus Equibase lines not already in the archive. Equibase = Equibase's yearly totals (all North American starts, jump races included), shown for reference.</span></div>`;
 }
 
 // ---------------------------------------------------------------- comparison
@@ -1395,7 +1409,7 @@ function metrics(id, pos) {
   const all = allStarts(h);
   const yr = recOf(all, x => Math.floor(x[0] / 10000) === ty);
   const abroadJ = recOf(all, x => x[2] === 'RJ'), p2p = recOf(all, x => x[2] === 'PP');
-  const flatAll = recOf(all, x => x[2] === 'FL' || x[2] === 'RF');
+  const flatAll = recOf(all, x => x[2] === 'FL' || x[2] === 'RF' || (x[2] === 'US' && x[3] === 'F'));
   const lastAny = all[0];
   return {
     pos, id, h, life, last, errs, pu, tim, hdl, bestVar, yr, all: recOf(all), abroadJ, p2p, flatAll, lastAny,
