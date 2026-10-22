@@ -1256,6 +1256,7 @@ function trackSection(h) {
       <td class="trk">${fmtDate(l[0])} ${trkCell(courseAbbr(l[1]), l[1])}</td>
       <td>${esc(l[3] || '—')}</td>
       <td>${esc(l[2])}</td>
+      <td class="n">${esc(l[15] || '')}</td>
       <td>${esc(l[4])}${l[5] ? ' ' + esc(l[5]) : ''}</td>
       <td class="n">${l[9] || ''}</td>
       <td><span class="fin${win ? ' win' : ''}">${esc(l[8] || '—')}</span></td>
@@ -1267,7 +1268,7 @@ function trackSection(h) {
   }).join('');
   return `<div class="flathead"><b>Track form under Rules</b><span>${runs.length} run${runs.length > 1 ? 's' : ''} under Rules, ${wins} win${wins === 1 ? '' : 's'} · results courtesy of <a href="${esc(x[0])}" target="_blank" rel="noopener">At The Races</a>${more > 0 ? ` · ${more} more not shown` : ''}</span></div>
     <div class="lines"><table class="pplines">
-    <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th>Class</th><th class="n" title="Runners">Fld</th><th>Fin</th><th class="n" title="Lengths: the winner's margin, or the distance beaten">Mgn</th><th>Jockey</th><th class="n" title="Weight carried, lbs">Wt</th><th class="n" title="Official rating">OR</th><th>Order of finish</th></tr></thead>
+    <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th class="n" title="Official winning time (minutes:seconds.hundredths), from the race result">Time</th><th>Class</th><th class="n" title="Runners">Fld</th><th>Fin</th><th class="n" title="Lengths: the winner's margin, or the distance beaten">Mgn</th><th>Jockey</th><th class="n" title="Weight carried, lbs">Wt</th><th class="n" title="Official rating">OR</th><th>Order of finish</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
 // British and Irish point-to-point form: facts only (no running comments, no proprietary ratings), in our
