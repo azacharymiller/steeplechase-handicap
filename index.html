@@ -1160,7 +1160,7 @@ function ppBlock(id, pos) {
 
   const el = eqLife(h); if (el && el.st) rows.push(['Equibase', el, false, true]);
   for (const g of ['firm', 'good', 'soft']) rows.push([g === 'soft' ? 'Yld/Sft' : g[0].toUpperCase() + g.slice(1), rec(h, r => goingOf(r) === g), state.going === g, g === 'firm' && !(state.kind && state.furlongs)]);
-  if (!h[10].length) { rows = rows.filter(r => (r[0] === 'Flat' && r[1].st) || r[0] === 'Equibase').map(r => [r[0], r[1], false, false]); if (!rows.length) rows = [['Life', lifeRec(h), false, false]]; }
+  if (!h[10].length) { rows = rows.filter(r => ((r[0] === 'Life' || r[0] === 'Flat') && r[1].st) || r[0] === 'Equibase').map(r => [r[0], r[1], false, false]); if (!rows.length) rows = [['Life', lifeRec(h), false, false]]; }
   const recbox = `<table class="recbox" aria-label="Record">${rows.map(([l, o, on, sep]) =>
     `<tr class="${on ? 'on' : ''}${sep ? ' sep' : ''}"><td>${esc(l)}</td><td>${o.st}</td><td>${o.w}</td><td>${o.p}</td><td>${o.s}</td><td>${money(o.e) || '$0'}</td></tr>`).join('')}</table>`;
   const ent = entryOf(id);
