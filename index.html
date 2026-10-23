@@ -650,13 +650,14 @@ function flatMerged(h) {
 // 2026-10-23 (Zach, L'Imperator): Life and the year rows also count races under Rules from At The Races —
 // British, Irish and French runs always; American ($) runs only when the horse has no Equibase record, since
 // Equibase's yearly totals already hold them (the build has already dropped any on a date our archive holds).
+// Their earnings are estimates: prize fund x the American purse split for the placing, at current exchange rates.
 function lifeRec(h, yr) {
   const o = lifeRecUS(h, yr), t = D.track && D.track[h[0]];
   if (t) for (const l of t[1]) {
     if (state.asOf && l[0] >= state.asOf) continue;
     if (yr != null && Math.floor(l[0] / 10000) !== yr) continue;
     if (/^\$/.test(l[5] || '') && eq(h)) continue;
-    o.st++; if (l[8] === '1') o.w++; else if (l[8] === '2') o.p++; else if (l[8] === '3') o.s++;
+    o.st++; o.e += l[16] || 0; if (l[8] === '1') o.w++; else if (l[8] === '2') o.p++; else if (l[8] === '3') o.s++;
   }
   return o;
 }
