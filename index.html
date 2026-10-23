@@ -647,7 +647,20 @@ function flatMerged(h) {
 // start. Year by year: Equibase's own total (it holds NSA races and all flat races) plus our starts Equibase does not
 // hold (unsanctioned starts with no Equibase line within a day: point-to-points, uncharted flat races). If what we can
 // see that year is more (Equibase has not caught up with a recent race yet), the archive + Equibase lines are used.
+// 2026-10-23 (Zach, L'Imperator): Life and the year rows also count races under Rules from At The Races —
+// British, Irish and French runs always; American ($) runs only when the horse has no Equibase record, since
+// Equibase's yearly totals already hold them (the build has already dropped any on a date our archive holds).
 function lifeRec(h, yr) {
+  const o = lifeRecUS(h, yr), t = D.track && D.track[h[0]];
+  if (t) for (const l of t[1]) {
+    if (state.asOf && l[0] >= state.asOf) continue;
+    if (yr != null && Math.floor(l[0] / 10000) !== yr) continue;
+    if (/^\$/.test(l[5] || '') && eq(h)) continue;
+    o.st++; if (l[8] === '1') o.w++; else if (l[8] === '2') o.p++; else if (l[8] === '3') o.s++;
+  }
+  return o;
+}
+function lifeRecUS(h, yr) {
   const e = eq(h), yOf = d => Math.floor(d / 10000);
   if (!e) return yr == null ? rec(h) : rec(h, r => yOf(r[0]) === yr);
   const Z = () => ({ st: 0, w: 0, p: 0, s: 0, e: 0 });
