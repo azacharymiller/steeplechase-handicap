@@ -234,7 +234,7 @@ label.f > span, .picker > span { display: block; }
 /* PP block */
 .pp { background: var(--sheet); border: 1px solid var(--rule-strong); }
 .pp-head {
-  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 12px; padding: 9px 10px 8px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 4px 12px; padding: 9px 10px 8px;
   border-bottom: 1px solid var(--ink); align-items: start;
 }
 .pp-head .pgm { min-width: 30px; height: 30px; font-size: 17px; }
@@ -247,7 +247,22 @@ label.f > span, .picker > span { display: block; }
 .recbox td:first-child { text-align: left; padding-left: 0; font-weight: 700; }
 .recbox tr.on td { background: var(--hilite); color: var(--hilite-ink); }
 .recbox tr.sep td { border-top: 1px solid var(--rule); }
-@media (max-width: 640px) { .pp-head { grid-template-columns: auto minmax(0, 1fr); } .pp-head .recwrap { grid-column: 1 / -1; } }
+@media (max-width: 640px) { .pp-head { grid-template-columns: auto minmax(0, 1fr); } .pp-head .recwrap, .pp-head .medbox { grid-column: 1 / -1; } .pp-head .medbox.empty { display: none; } .medbox { border-left: 0; padding: 4px 0; max-width: none; } }
+/* medication / equipment / ratings box between the horse and his record (2026-10-26) */
+.medbox { display: grid; gap: 5px; align-content: start; min-width: 150px; max-width: 260px; font-size: 12px; font-stretch: 82%; padding: 2px 10px; border-left: 1px solid var(--rule); }
+.medbox.empty { border: 0; padding: 0; min-width: 0; }
+.mb-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.mb-row .k { color: var(--muted); font-weight: 700; text-transform: uppercase; font-size: 10.5px; letter-spacing: .03em; width: 100%; }
+.mb-fig { font-size: 16px; font-weight: 900; font-stretch: 100%; }
+.mb-src { color: var(--muted); }
+a.mb-src { text-decoration: underline dotted; }
+.mb-med { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; }
+.eqchg { border: 1px solid var(--ink); border-radius: 2px; padding: 0 4px; font-weight: 700; white-space: nowrap; }
+.lx1 { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.15em; padding: 0 .2em; border-radius: 50%; background: var(--ink); color: var(--sheet); font-weight: 900; font-size: 11px; line-height: 1; }
+.lx { font-weight: 800; }
+td.me { white-space: nowrap; font-size: 11.5px; }
+td.me .lx1 { font-size: 10px; }
+.eqm { margin-left: 3px; font-weight: 700; }
 
 .lines { overflow-x: auto; }
 table.pplines { border-collapse: collapse; width: 100%; min-width: 980px; font-stretch: 74%; font-size: 13px; line-height: 1.25; }
@@ -385,6 +400,23 @@ button.ofmore:hover { text-decoration: underline; }
   table.pplines, table.cmp { min-width: 0; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* a horse's own page: auction record and family (2026-10-26) */
+.pp.horse-extra { margin-top: 10px; }
+.pp.horse-extra:empty, .pp.horse-extra:not(:has(*)) { display: none; }
+.saletab td, .famtab td { white-space: normal; }
+/* side panel over the card (2026-10-26) */
+#drawerShade { position: fixed; inset: 0; background: rgba(0,0,0,.28); z-index: 49; }
+#drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(980px, 72vw); background: var(--paper); border-left: 2px solid var(--ink);
+  box-shadow: -10px 0 30px rgba(0,0,0,.22); z-index: 50; display: flex; flex-direction: column; }
+#drawer[hidden], #drawerShade[hidden], #backCard[hidden] { display: none; }
+#drawer .dhead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid var(--rule-strong); background: var(--sheet); }
+#drawer .dt { flex: 1 1 200px; min-width: 0; font-weight: 800; font-size: 15px; }
+#drawer .dbody { overflow: auto; flex: 1; padding: 10px 12px 24px; -webkit-overflow-scrolling: touch; }
+#drawer .dacts { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 8px 0 12px; }
+body.drawer-open { overflow: hidden; }
+#backCard { position: fixed; left: 16px; bottom: 16px; z-index: 40; background: var(--accent); color: var(--accent-ink); border-color: var(--accent); box-shadow: 0 4px 14px rgba(0,0,0,.25); font-weight: 700; }
+@media (max-width: 900px) { #drawer { width: 100vw; border-left: 0; } }
 </style>
 
 <header class="masthead">
@@ -442,6 +474,9 @@ button.ofmore:hover { text-decoration: underline; }
     <div id="view" role="tabpanel"><div class="loading"><b>Loading the Form…</b>Reading every steeplechase start in the archive.</div></div>
   </section>
 </main>
+<div id="drawerShade" hidden></div>
+<aside id="drawer" aria-label="Details" hidden></aside>
+<button type="button" id="backCard" class="btn" hidden>◀ Back to the card</button>
 
 <footer class="colophon">
   <div class="notes">Data: American Point-to-Point and NSA steeplechase results, 1966 to date. Irish point-to-point form courtesy of <a href="https://p2p.ie/" target="_blank" rel="noopener">p2p.ie</a>; British point-to-point form courtesy of <a href="https://gbpointing.co.uk/" target="_blank" rel="noopener">GB Pointing</a>; British, Irish, French and (for horses new to our records) American track form courtesy of <a href="https://www.attheraces.com/" target="_blank" rel="noopener">At The Races</a>. <b>Win Mgn</b> is the winner's margin over the second horse, the only margin the charts record; beaten lengths for other finishers are not recorded. <b>Par±</b> compares a race's winning time with the average winning time for the same course, type and distance (three or more races needed); minus is faster.</div>
@@ -532,7 +567,7 @@ function histCard(ri) {
   const ents = raceEnt[ri].map(e => {
     const h = H[e[0]], st = h[10].find(x => x[0] === ri);
     return { name: h[1], hid: h[0], fin: e[1], jockey: st ? V[st[3]] : '', amateur: !!(st && st[4]), wt: st ? st[2] : null,
-             trainer: st ? V[st[5]] : '', owner: st ? V[st[6]] : '', med: '' };
+             trainer: st ? V[st[5]] : '', owner: st ? V[st[6]] : '', med: st && st[9] && st[9] !== '-' ? st[9] : '', equip: st && st[10] || '' };
   });   // program numbers aren't in the charts: a resulted race is numbered in finishing order (raceEnt is sorted by finish)
   ents.forEach((e, k) => { e.pp = String(k + 1); });
   const x = { c: { id: 'hist', meet: C[r[1]][1], date: r[0], status: 'result', source: 'Archive', course: r[1] },
@@ -986,14 +1021,15 @@ function openPastRace(ri) {
 }
 const raceLink = (ri, txt) => `<button class="hlink" data-race="${ri}">${txt}</button>`;
 const horseLink = (id, txt) => `<button class="hlink" data-look-horse="${id}">${txt}</button>`;
-function renderLook() {
-  const L = state.look, keepAs = state.asOf; state.asOf = null;
+function lookParts(L) {
+  const keepAs = state.asOf; state.asOf = null;
   let head = '', body = '';
   try {
     if (L.t === 'horse') {
-      const hi = byId.get(L.id); if (hi == null) return '';
+      const hi = byId.get(L.id); if (hi == null) return { head: '', body: '', key: '' };
       head = `Horse · ${esc(H[hi][1])}`;
-      body = `<div class="lookbar">${state.horses.includes(L.id) ? '' : `<button class="btn small" data-add="${L.id}">Add to the field</button>`}</div>` + ppBlock(L.id, Math.max(0, state.horses.indexOf(L.id)));
+      body = `<div class="lookbar">${state.horses.includes(L.id) ? '' : `<button class="btn small" data-add="${L.id}">Add to the field</button>`}</div>` + ppBlock(L.id, Math.max(0, state.horses.indexOf(L.id)))
+        + `<article class="pp horse-extra">${salesSection(H[hi])}${familySection(H[hi])}</article>`;
     } else if (L.t === 'person') {
       const p = PEOPLE.get(L.v), K = L.k || ['r', 't', 'o'].filter(k => p[k].length).sort((a, b) => p[b].length - p[a].length)[0];
       head = `${esc(p.n)} · ${ROLE[K]}`;
@@ -1047,9 +1083,12 @@ function renderLook() {
       body = `<div class="pad"><div class="resinfo">${ids.length} race${ids.length === 1 ? '' : 's'} on record · click a race for the full result · click a column heading to sort</div>${sortTable(rows, cols, 300)}</div>`;
     }
   } finally { state.asOf = keepAs; }
-  const lk = L.t === 'horse' ? `horse=${L.id}` : L.t === 'person' ? (() => { const p = PEOPLE.get(L.v), K = L.k || ['r', 't', 'o'].filter(k => p[k].length).sort((a, b) => p[b].length - p[a].length)[0]; return `person=${p.n}~${K}`; })() : '';
-  $('#notice').innerHTML = `<div class="racehead"><div><div class="t">${head}</div><div class="c">Database search</div></div><div class="par"><button class="btn small" data-closelook="1">${state.horses.length || entryCtx() ? 'Back to the race card' : 'Close'}</button>${lk ? `<br><button type="button" class="copylink" data-copy="${esc(lk)}">Copy link</button>` : ''}</div></div>`;
-  return `<div class="sheet">${body}</div>`;
+  return { head, body, key: lookHash(L) };
+}
+function renderLook() {
+  const L = state.look, P = lookParts(L), lk = P.key;
+  $('#notice').innerHTML = `<div class="racehead"><div><div class="t">${P.head}</div><div class="c">Database search</div></div><div class="par"><button class="btn small" data-closelook="1">${state.horses.length || entryCtx() ? 'Back to the race card' : 'Close'}</button>${lk ? `<br><button type="button" class="copylink" data-copy="${esc(lk)}">Copy link</button>` : ''}</div></div>`;
+  return `<div class="sheet">${P.body}</div>`;
 }
 // sortable table for search results: cols = [title, sortKey(row), cell(row), numeric?]; state.lookSort = {i, dir}
 function sortTable(rows, cols, cap) {
@@ -1077,10 +1116,14 @@ function wireDb() {
   document.addEventListener('click', e => {
     if (!e.target.closest('.dbsearch')) $('#dbres').hidden = true;
     const t = e.target.closest('[data-race],[data-look-horse],[data-closelook],[data-lookall],[data-add],[data-person],[data-partners]'); if (!t) return;
-    if (t.dataset.partners) { const p = PEOPLE.get(+t.dataset.partners); openLook({ t: 'partners', q: p.n, vs: partnersOf(p) }); }
-    else if (t.dataset.person) openLook({ t: 'person', v: +t.dataset.person, k: t.dataset.role });
+    const look = t.dataset.partners ? (() => { const p = PEOPLE.get(+t.dataset.partners); return { t: 'partners', q: p.n, vs: partnersOf(p) }; })()
+      : t.dataset.person ? { t: 'person', v: +t.dataset.person, k: t.dataset.role }
+      : t.dataset.race ? { t: 'prace', ri: +t.dataset.race }
+      : t.dataset.lookHorse ? { t: 'horse', id: +t.dataset.lookHorse } : null;
+    if (look && (e.ctrlKey || e.metaKey || e.shiftKey) && lookHash(look)) { e.preventDefault(); window.open(navUrl(lookHash(look)), '_blank', 'noopener'); return; }
+    if (look && (t.closest('#drawer') || onCard())) { drawerOpen(look); return; }
+    if (t.dataset.partners || t.dataset.person || t.dataset.lookHorse) openLook(look);
     else if (t.dataset.race) openPastRace(+t.dataset.race);
-    else if (t.dataset.lookHorse) openLook({ t: 'horse', id: +t.dataset.lookHorse });
     else if (t.dataset.closelook) { state.look = null; commit(); }
     else if (t.dataset.lookall) { state.lookAll = true; commit(); }
     else if (t.dataset.add) { addHorse(+t.dataset.add); }
@@ -1143,6 +1186,66 @@ function finCell(s, r) {
   if (f === '1') return `<span class="fin win">1</span>`;
   return `<span class="fin${ERR.has(f) ? ' err' : ''}">${esc(f)}</span>`;
 }
+// Medication & equipment (2026-10-26, user feedback): DRF style, a black oval L for first-time Lasix, a plain L otherwise.
+const EQ_NAME = { B: 'Blinkers', CP: 'Cheek pieces', H: 'Hood', TT: 'Tongue tie', V: 'Visor', SR: 'Shadow roll' };
+const eqWords = s => (s || '').split(' ').filter(Boolean).map(c => { const m = /^([A-Z]+)([+-])$/.exec(c); return m ? `${EQ_NAME[m[1]] || m[1]} ${m[2] === '+' ? 'on' : 'off'}` : c; });
+const lasixMark = m => m === 'L1' ? '<span class="lx1" title="First-time Lasix">L</span>' : m === 'L' ? '<span class="lx" title="Lasix">L</span>' : m === 'LX' ? '<span class="lx" title="Off Lasix">LX</span>' : '';
+const eqMark = s => (s || '').split(' ').filter(Boolean).map(c => { const m = /^([A-Z]+)([+-])$/.exec(c); return m ? `<span class="eqm" title="${EQ_NAME[m[1]] || m[1]} ${m[2] === '+' ? 'on' : 'off'}">${m[1].toLowerCase()}${m[2] === '+' ? '+' : '−'}</span>` : ''; }).join('');
+function medBox(id, h) {
+  const out = [], e = entryOf(id);
+  if (e && (e.med || e.equip)) {
+    const x = entryCtx(), label = x && x.r.hist != null ? 'Race day' : 'Today';
+    const med = e.med === 'L1' ? `${lasixMark('L1')} First-time Lasix` : e.med === 'LX' ? `${lasixMark('LX')} Off Lasix` : e.med && e.med.startsWith('L') ? `${lasixMark('L')} Lasix` : '';
+    const eqs = eqWords(e.equip).map(w => `<span class="eqchg">${esc(w)}</span>`).join('');
+    out.push(`<div class="mb-row"><span class="k">${label}</span>${med ? `<span class="mb-med">${med}</span>` : ''}${eqs}</div>`);
+  }
+  const rt = D.rating && D.rating.r[h[0]];
+  if (rt) out.push(`<div class="mb-row"><span class="k">NSA rating</span><b class="mb-fig">${esc(String(rt))}</b><a class="mb-src" href="${esc(D.rating.source)}" target="_blank" rel="noopener" title="NSA Official Ratings">${fmtDate(isoToInt(D.rating.date))}</a></div>`);
+  const q = eq(h);
+  if (q) {
+    const lf = (q[2] || []).find(l => +l[10] > 0 && (!state.asOf || l[0] < state.asOf));
+    const best = Math.max(0, ...(q[1] || []).map(y => +y[6] || 0));
+    if (lf || best) out.push(`<div class="mb-row"><span class="k">Equibase fig</span>${lf ? `<b class="mb-fig">${esc(String(lf[10]))}</b><span class="mb-src">last, ${fmtDate(lf[0])} ${esc(lf[1] || '')}</span>` : ''}${best ? `<span class="mb-src">best ${best}</span>` : ''}</div>`);
+  }
+  return out.length ? `<div class="medbox">${out.join('')}</div>` : '<div class="medbox empty"></div>';
+}
+// A horse's own page (2026-10-26, user feedback): auction record and the family over jumps, under the PP chart.
+const famKey = n => (n || '').replace(/\s*\(.*$/, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+let damIndex = null;
+function byDam() {
+  if (damIndex) return damIndex;
+  damIndex = new Map();
+  for (const x of H) { const k = famKey(x[7]); if (!k) continue; (damIndex.get(k) || damIndex.set(k, []).get(k)).push(x); }
+  return damIndex;
+}
+function bestWin(x) {
+  let b = null;
+  for (const s of x[10]) if (s[1] === '1') { const r = R[s[0]]; if (!b || (r[16] || 0) > (R[b[0]][16] || 0)) b = s; }
+  return b ? `won ${raceLink(b[0], esc(raceTitle(R[b[0]]) || 'race'))} ${fmtDate(R[b[0]][0])}` : '';
+}
+const recStr = o => `${o.st}-${o.w}-${o.p}-${o.s}${o.e ? ' · ' + money(o.e) : ''}`;
+function familySection(h) {
+  if (!h[7]) return '';
+  const dk = famKey(h[7]), sameDam = x => !h[8] || !x[8] || famKey(x[8]) === famKey(h[8]);
+  const dam = H.filter(x => famKey(x[1]) === dk && x[10].length && (!h[8] || !x[6] || famKey(x[6]) === famKey(h[8])) && (!h[5] || !x[5] || x[5] < h[5] - 2) && !['g', 'h', 'c', 'r'].includes(x[4]));
+  const sibs = (byDam().get(dk) || []).filter(x => x[0] !== h[0] && x[10].length && sameDam(x))
+    .sort((a, b) => (b[5] || 0) - (a[5] || 0));
+  if (!dam.length && !sibs.length) return '';
+  const rel = x => { const full = h[6] && x[6] && famKey(x[6]) === famKey(h[6]); const male = ['g', 'h', 'c', 'r'].includes(x[4]), fem = ['m', 'f'].includes(x[4]);
+    return (full ? 'Full ' : 'Half-') + (male ? 'brother' : fem ? 'sister' : 'sibling'); };
+  const row = (x, who) => { const o = rec(x); return `<tr><td>${who}</td><td>${horseLink(x[0], esc(x[1]))}</td><td>${x[5] || ''}</td><td>${esc(x[6] || '')}</td><td class="n">${recStr(o)}</td><td>${bestWin(x)}</td></tr>`; };
+  return `<div class="flathead"><b>Family over jumps</b><span>${esc(h[7])}${h[8] ? ' (by ' + esc(h[8]) + ')' : ''}: the dam and her other foals with starts in the steeplechase archive</span></div>
+    <div class="lines"><table class="pplines famtab"><thead><tr><th></th><th>Horse</th><th>Foaled</th><th>Sire</th><th class="n" title="Starts-wins-seconds-thirds, earnings">Record</th><th>Best win</th></tr></thead><tbody>
+    ${dam.map(x => row(x, 'Dam')).join('')}${sibs.map(x => row(x, rel(x))).join('')}</tbody></table></div>`;
+}
+const AGE_AT_SALE = { 0: 'weanling', 1: 'yearling', 2: '2-year-old' };
+function salesSection(h) {
+  const ss = D.sales && D.sales[h[0]]; if (!ss || !ss.length) return '';
+  const rows = ss.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => `<tr><td>${x[0]}</td><td>${esc(x[2])}</td><td>${AGE_AT_SALE[x[3]] || (x[3] != null ? x[3] + 'yo' : '')}</td><td class="n">${x[6] ? esc(String(x[6])) : ''}</td>
+    <td class="n"><b>${x[4] ? money(x[4]) : ''}</b></td><td>${x[5] === 'S' ? 'Sold' : x[5] === 'R' ? '<span title="Not sold: bought back (RNA), the last bid is shown">RNA</span>' : ''}</td><td>${x[5] === 'S' ? esc(x[7] || '') : ''}</td></tr>`).join('');
+  return `<div class="flathead"><b>Auction record</b><span>public sales of this horse (matched on sire, dam and year of birth) · Timbercreek bloodstock database</span></div>
+    <div class="lines"><table class="pplines saletab"><thead><tr><th>Year</th><th>Sale</th><th>Age</th><th class="n">Hip</th><th class="n">Price</th><th></th><th>Buyer</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
 function ppBlock(id, pos) {
   const hi = byId.get(id), h = hv(H[hi]), td = targetDate();
   const last = h[10][0], lastRace = last && R[last[0]];
@@ -1178,8 +1281,8 @@ function ppBlock(id, pos) {
     const r = R[s[0]], m = lineMatch(r);
     const gap = daysBetween(r[0], prev);
     if ((k === 0 && isoToInt(state.date) && gap > 0) || (k > 0 && gap >= 90)) {
-      if (k === 0) body += `<tr class="gap"><td colspan="13">${gap} days since last start</td></tr>`;
-      else body += `<tr class="gap"><td colspan="13">Away ${gap} days</td></tr>`;
+      if (k === 0) body += `<tr class="gap"><td colspan="14">${gap} days since last start</td></tr>`;
+      else body += `<tr class="gap"><td colspan="14">Away ${gap} days</td></tr>`;
     }
     prev = r[0];
     const hl = (on, html) => on ? `<mark>${html}</mark>` : html;
@@ -1198,6 +1301,7 @@ function ppBlock(id, pos) {
       <td class="n">${r[14] ? `<span title="${esc(marginWord(r[14]))}">${esc(r[14])}</span>` : ''}</td>
       <td title="${esc(riderFull(V[s[3]]))}">${esc(riderShort(V[s[3]]))}${amat}</td>
       <td class="n">${s[2] || ''}</td>
+      <td class="me">${lasixMark(s[9])}${eqMark(s[10])}</td>
       <td class="n">${s[7] ? kpurse(s[7]) : ''}</td>
       <td class="ofin">${topFinishers(s[0], hi)}</td></tr>`;
   });
@@ -1216,11 +1320,12 @@ function ppBlock(id, pos) {
           ${owner ? `<div><span class="k">Own:</span> ${esc(owner)}</div>` : ''}
           ${trainer ? `<div><span class="k">Tr:</span> ${esc(trainer)}</div>` : ''}
         </div></div>
+      ${medBox(id, h)}
       <div class="recwrap">${recbox}</div>
     </div>
     ${!h[10].length ? `<div class="flathead"><b>Jump form</b><span>No starts in the steeplechase archive${eq(h) ? '' : ' · no North American record either (likely raced only abroad)'}</span></div>` : `<div class="lines"><table class="pplines">
-      <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th>Time</th><th class="n" title="Winning time against course par, seconds">Par±</th><th>Class</th><th class="n" title="Starters">Fld</th><th>Fin</th><th class="n" title="Winning margin: the winner's margin over the second horse, in lengths">Win Mgn</th><th>Jockey</th><th class="n">Wt</th><th class="n" title="Earnings">Earn</th><th>Order of finish</th></tr></thead>
-      <tbody>${body || `<tr><td colspan="13" class="muted">No ${KIND[state.lineFilter] ? KIND[state.lineFilter].toLowerCase() + ' ' : ''}starts on record.</td></tr>`}</tbody></table></div>`}
+      <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th>Time</th><th class="n" title="Winning time against course par, seconds">Par±</th><th>Class</th><th class="n" title="Starters">Fld</th><th>Fin</th><th class="n" title="Winning margin: the winner's margin over the second horse, in lengths">Win Mgn</th><th>Jockey</th><th class="n">Wt</th><th title="Medication and equipment changes: L Lasix, black L first-time Lasix, LX off Lasix; b blinkers, cp cheek pieces, h hood (+ on, − off). From NSA charts and overnights, 2024 on.">M/E</th><th class="n" title="Earnings">Earn</th><th>Order of finish</th></tr></thead>
+      <tbody>${body || `<tr><td colspan="14" class="muted">No ${KIND[state.lineFilter] ? KIND[state.lineFilter].toLowerCase() + ' ' : ''}starts on record.</td></tr>`}</tbody></table></div>`}
     ${flatSection(h, hi)}
     ${trackSection(h)}
     ${pointSection(h, 'irish', 'Irish point-to-point form', 'p2p.ie')}
@@ -1267,7 +1372,7 @@ function trackSection(h) {
     const win = l[8] === '1';
     const res = win ? (l[10] ? `by ${esc(l[11] || '?')} from ${esc(l[10])}` : '') : (l[10] ? `${esc(l[10])} won${l[11] ? ` · btn ${esc(l[11])}` : ''}` : '');
     return `<tr>
-      <td class="trk">${fmtDate(l[0])} ${trkCell(courseAbbr(l[1]), l[1])}</td>
+      <td class="trk">${fmtDate(l[0])} ${trkCell(l[17] || courseAbbr(l[1]), l[1])}</td>
       <td>${esc(l[3] || '—')}</td>
       <td>${esc(l[2])}</td>
       <td class="n">${esc(l[15] || '')}</td>
@@ -1321,7 +1426,6 @@ function todayLine(id) {
   const bits = [], x = entryCtx(), label = x && x.r.hist != null ? 'Race day' : 'Today';
   if (e.jockey) bits.push(`<b>${esc(riderFull(e.jockey))}</b>${e.amateur ? ' (A)' : ''}`);
   if (e.wt) bits.push(`<b>${e.wt}</b> lb${e.allow ? ' (' + '*'.repeat(e.allow) + ' allowance)' : ''}`);
-  if (e.med) bits.push(e.med.startsWith('L') ? 'Lasix' + (e.med === 'L1' ? ' first time' : e.med === 'LX' ? ' off (LX)' : '') : esc(e.med));
   if (e.claim) bits.push('Clm ' + money(e.claim));
   if (e.trainer) bits.push('Tr ' + esc(e.trainer));
   if (e.ae) bits.push('also eligible');
@@ -1605,7 +1709,7 @@ function jumpTo(id) {
 // Phones: once a race is loaded the field list folds to one line ("7 horses ▾") so the Form comes first
 const narrow = () => window.matchMedia('(max-width: 900px)').matches;
 const fieldIsOpen = () => state.fieldOpen != null ? state.fieldOpen : !(narrow() && state.horses.length);
-function commit() { store.set('spp.current', state); render(); }
+function commit() { store.set('spp.current', state); render(); navAfter(); }
 
 let toastT;
 function toast(msg) {
@@ -1708,6 +1812,109 @@ function fromHash() {
     going: m[5] === 'x' ? '' : m[5], date: m[6] === 'x' ? '' : m[6].replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3') };
 }
 
+
+// ---------------------------------------------------------------- navigation (2026-10-26, user feedback: "couldn't get back to the card")
+// Every page change is a browser history entry, so the Back button returns to the card you were on, where you were.
+// From a race card, a horse, a person or a past race opens in a side panel over the card instead of replacing it;
+// Ctrl/Cmd/Shift-click (or middle-click) opens it in a new tab.
+let drawer = [], navRestoring = false, navKey = null, lastY = 0, drawerTop = '';
+window.addEventListener('scroll', () => { lastY = window.scrollY; }, { passive: true });
+const onCard = () => !state.look && !!(entryCtx() || state.horses.length);
+function lookHash(L) {
+  if (!L) return '';
+  if (L.t === 'horse') return `horse=${L.id}`;
+  if (L.t === 'prace') { const r = R[L.ri]; return r ? `race=${r[0]}-${C[r[1]][0]}-${r[2]}` : ''; }
+  if (L.t === 'person') { const p = PEOPLE.get(L.v); if (!p) return ''; const K = L.k || ['r', 't', 'o'].filter(k => p[k].length).sort((a, b) => p[b].length - p[a].length)[0]; return `person=${p.n}~${K}`; }
+  return '';
+}
+const navUrl = h => location.pathname + location.search + (h ? '#' + encodeURI(h) : '');
+function navHash() {
+  const top = drawer[drawer.length - 1]; if (top && lookHash(top)) return lookHash(top);
+  if (state.look) return lookHash(state.look);
+  const x = entryCtx(); return x ? raceLinkKey(x) : '';
+}
+function navSnap() {
+  return { horses: state.horses.slice(), entry: state.entry, look: state.look, lookAll: state.lookAll, tab: state.tab, asOf: state.asOf,
+    pick: state.pick, rcSel, rcText: $('#rcText').textContent, season: $('#season').value, drawer: drawer.slice() };
+}
+const navPageKey = () => JSON.stringify([state.look, state.entry, state.entry ? null : state.horses]);
+function navAfter() {
+  if (navRestoring) return;
+  const key = navPageKey();
+  try {
+    if (navKey == null) history.replaceState({ snap: navSnap(), y: 0 }, '', navUrl(navHash()));
+    else if (key !== navKey) {
+      if (drawer.length) { drawer = []; renderDrawer(); }
+      history.replaceState(Object.assign({}, history.state, { y: lastY }), '');
+      history.pushState({ snap: navSnap(), y: 0 }, '', navUrl(navHash()));
+    } else history.replaceState({ snap: navSnap(), y: (history.state && history.state.y) || 0 }, '', navUrl(navHash()));
+  } catch (e) { /* history API refused (e.g. a sandboxed preview): navigation still works, just without Back */ }
+  navKey = key;
+  if (drawer.length) renderDrawer();
+  $('#backCard').hidden = !(state.look && (entryCtx() || state.horses.length));
+}
+function drawerOpen(look) {
+  drawer.push(look); renderDrawer();
+  try { history.replaceState(Object.assign({}, history.state, { y: lastY }), ''); history.pushState({ snap: navSnap(), y: lastY }, '', navUrl(navHash())); } catch (e) {}
+}
+function drawerClose() { const n = drawer.length; if (!n) return; if (history.state && history.state.snap && (history.state.snap.drawer || []).length === n) history.go(-n); else { drawer = []; renderDrawer(); } }
+function drawerBack() { if (history.state && history.state.snap && (history.state.snap.drawer || []).length === drawer.length) history.back(); else { drawer.pop(); renderDrawer(); } }
+function drawerRace(ri) {
+  const r = R[ri], y = Math.floor(r[0] / 10000), rp = firstReplay(ri);
+  const rows = raceEnt[ri].map(e => {
+    const h = H[e[0]], st = h[10].find(x => x[0] === ri) || [], win = e[1] === '1';
+    return `<tr><td><span class="fin${win ? ' win' : ''}">${esc(e[1] || '—')}</span></td>
+      <td class="l">${horseLink(h[0], esc(h[1]))}<span class="s">${h[5] ? (y - h[5]) + 'yo ' : ''}${esc(h[4] || '')}${h[6] ? ' · ' + esc(h[6]) : ''}${h[7] ? '–' + esc(h[7]) : ''}</span></td>
+      <td class="n">${st[2] || ''}</td><td>${esc(riderFull(V[st[3]]))}${st[4] ? ' (A)' : ''}</td><td>${esc(V[st[5]] || '')}</td>
+      <td class="n">${st[7] ? money(st[7]) : ''}</td><td class="cmt">${esc(V[st[8]] || '')}</td></tr>`;
+  }).join('');
+  const head = `${fmtDate(r[0])} · ${esc(C[r[1]][1])} · Race ${r[2] || '?'}`;
+  const body = `<div class="sheet"><div class="pad">
+    <div class="resinfo"><span><b>${esc(raceTitle(r) || '')}</b></span><span>${esc(KIND[r[6]] || '')} ${esc(V[r[9]] || '')}</span><span>Going <b>${esc(goingWord(r[11]) || '—')}</b></span><span>Time <b>${esc(r[12] || '—')}</b></span><span>Won by <b>${esc(marginWord(r[14]) || '—')}</b></span><span>${raceEnt[ri].length} ran</span>${r[16] ? `<span>Purse <b>${money(r[16])}</b></span>` : ''}</div>
+    <div class="dacts">${rp ? `<a class="replaybtn" href="${esc(rp)}" target="_blank" rel="noopener"><span class="play">▶</span>Watch the Race Replay</a>` : ''}<button class="btn small" data-racemain="${ri}">Open this race as the card</button></div>
+    <table class="pplines restab"><thead><tr><th>Fin</th><th class="l">Horse</th><th class="n">Wt</th><th>Rider</th><th>Trainer</th><th class="n">Earned</th><th>Comment</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="legend"><span>Click a horse for his past performances</span><span>(A) amateur rider</span></div></div></div>`;
+  return { head, body, key: lookHash({ t: 'prace', ri }) };
+}
+function renderDrawer() {
+  const el = $('#drawer'), L = drawer[drawer.length - 1];
+  document.body.classList.toggle('drawer-open', !!L); $('#drawerShade').hidden = !L;
+  if (!L) { el.hidden = true; el.innerHTML = ''; drawerTop = ''; return; }
+  buildPeople();
+  const P = L.t === 'prace' ? drawerRace(L.ri) : lookParts(L), top = JSON.stringify(L) + drawer.length;
+  const keep = top === drawerTop && el.querySelector('.dbody') ? el.querySelector('.dbody').scrollTop : 0;
+  el.innerHTML = `<div class="dhead"><button type="button" class="btn small" data-dback="1">◀ ${drawer.length > 1 ? 'Back' : 'Back to the card'}</button>${drawer.length > 1 ? '<button type="button" class="btn small ghost" data-dclose="1">Close · back to the card</button>' : ''}
+    <div class="dt">${P.head}</div>${P.key ? `<button type="button" class="copylink" data-copy="${esc(P.key)}">Copy link</button>` : ''}</div><div class="dbody">${P.body}</div>`;
+  el.hidden = false; el.querySelector('.dbody').scrollTop = keep; drawerTop = top;
+  if (!keep) el.querySelector('[data-dback]').focus({ preventScroll: true });
+}
+document.addEventListener('click', e => {
+  if (e.target.closest('[data-dback]')) drawerBack();
+  else if (e.target.closest('[data-dclose]') || e.target.closest('#drawerShade')) drawerClose();
+  else if (e.target.closest('#backCard')) { state.look = null; commit(); }
+  else { const m = e.target.closest('[data-racemain]'); if (m) { const ri = +m.dataset.racemain; drawer = []; renderDrawer(); openPastRace(ri); } }
+});
+document.addEventListener('auxclick', e => {      // middle-click: new tab
+  if (e.button !== 1) return;
+  const t = e.target.closest('[data-race],[data-look-horse],[data-person]'); if (!t) return;
+  const look = t.dataset.race ? { t: 'prace', ri: +t.dataset.race } : t.dataset.lookHorse ? { t: 'horse', id: +t.dataset.lookHorse } : { t: 'person', v: +t.dataset.person, k: t.dataset.role };
+  if (lookHash(look)) { e.preventDefault(); window.open(navUrl(lookHash(look)), '_blank', 'noopener'); }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && drawer.length && !e.target.closest('input,select,textarea')) drawerClose(); });
+window.addEventListener('popstate', e => {
+  const s = e.state && e.state.snap; if (!s) return;
+  navRestoring = true;
+  try {
+    Object.assign(state, { horses: s.horses, entry: s.entry, look: s.look, lookAll: s.lookAll, tab: s.tab, asOf: s.asOf, pick: s.pick });
+    if ($('#season').value !== s.season) { $('#season').value = s.season; fillRaceCards(); }
+    rcSel = s.rcSel || ''; $('#rcText').textContent = s.rcText || $('#rcText').textContent; renderRaceList();
+    drawer = s.drawer || [];
+    store.set('spp.current', state); render(); renderDrawer();
+    $('#backCard').hidden = !(state.look && (entryCtx() || state.horses.length));
+  } finally { navRestoring = false; }
+  navKey = navPageKey();
+  const y = e.state.y || 0; requestAnimationFrame(() => window.scrollTo(0, y));
+});
 // ---------------------------------------------------------------- boot
 (async function boot() {
   try { await load(); }
@@ -1719,7 +1926,7 @@ function fromHash() {
   if (saved) { state.tab = saved.tab || 'pp'; state.nLines = saved.nLines || 10; state.lineFilter = saved.lineFilter || 'all'; state.flat = saved.flat || 'show'; state.cmpHide = saved.cmpHide || []; }
   syncControls();
   if (!openLink(location.hash)) { if (fromLink) applyCard(fromLink); else render(); }
-  window.addEventListener('hashchange', () => openLink(location.hash));
+  window.addEventListener('hashchange', () => { if (history.state && history.state.snap) return; openLink(location.hash); });
   let wasNarrow = narrow(); window.addEventListener('resize', () => { if (narrow() !== wasNarrow) { wasNarrow = narrow(); renderField(); } });
   if (false) {
     // example: the most recent sanctioned timber race with 5+ starters
