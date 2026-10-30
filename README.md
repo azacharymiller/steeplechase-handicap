@@ -4,7 +4,7 @@ A handicapping app for American steeplechase racing. Pick the horses entered in 
 race and compare their past performances side by side, Daily Racing Form style,
 with a comparison sheet and head-to-head meetings.
 
-20,235 horses, 141,033 starts, 1966-2026. Data built 2026-10-29.
+20,235 horses, 141,033 starts, 1966-2026. Data built 2026-10-30.
 
 - `index.html` - the app
 - `data/pp.json.gz` - the past-performance data, gzipped JSON
