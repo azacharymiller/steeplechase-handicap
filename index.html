@@ -734,7 +734,7 @@ function eqLife(h) {
   return o;
 }
 // Every start on file for a horse, from all sources, newest first: [date, finish, source]
-// sources: US = American jump race (archive), FL = flat (Equibase/Timbercreek lines), RJ/RF = races under Rules
+// sources: US = American jump race (archive), FL = flat (Equibase lines), RJ/RF = races under Rules
 // abroad over jumps / on the flat (At The Races), PP = British/Irish point-to-point (GB Pointing, p2p.ie).
 const isJumpRace = t => /Hdl|Ch\b|Ch$|Chase|Hurdle|\bJump\b/i.test(t || '');
 function allStarts(h) {
@@ -1246,7 +1246,7 @@ function salesSection(h) {
   const ss = D.sales && D.sales[h[0]]; if (!ss || !ss.length) return '';
   const rows = ss.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => `<tr><td>${x[0]}</td><td>${esc(x[2])}</td><td>${AGE_AT_SALE[x[3]] || (x[3] != null ? x[3] + 'yo' : '')}</td><td class="n">${x[6] ? esc(String(x[6])) : ''}</td>
     <td class="n"><b>${x[4] ? money(x[4]) : ''}</b></td><td>${x[5] === 'S' ? 'Sold' : x[5] === 'R' ? '<span title="Not sold: bought back (RNA), the last bid is shown">RNA</span>' : ''}</td><td>${x[5] === 'S' ? esc(x[7] || '') : ''}</td></tr>`).join('');
-  return `<div class="flathead"><b>Auction record</b><span>public sales of this horse (matched on sire, dam and year of birth) · Timbercreek bloodstock database</span></div>
+  return `<div class="flathead"><b>Auction record</b><span>public sales of this horse (matched on sire, dam and year of birth)</span></div>
     <div class="lines"><table class="pplines saletab"><thead><tr><th>Year</th><th>Sale</th><th>Age</th><th class="n">Hip</th><th class="n">Price</th><th></th><th>Buyer</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function ppBlock(id, pos) {
