@@ -261,6 +261,7 @@ a.mb-src { text-decoration: underline dotted; }
 .lx1 { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.15em; padding: 0 .2em; border-radius: 50%; background: var(--ink); color: var(--sheet); font-weight: 900; font-size: 11px; line-height: 1; }
 .lx { font-weight: 800; }
 td.me { white-space: nowrap; font-size: 11.5px; }
+td.tr { white-space: nowrap; }
 td.me .lx1 { font-size: 10px; }
 .eqm { margin-left: 3px; font-weight: 700; }
 
@@ -1281,8 +1282,8 @@ function ppBlock(id, pos) {
     const r = R[s[0]], m = lineMatch(r);
     const gap = daysBetween(r[0], prev);
     if ((k === 0 && isoToInt(state.date) && gap > 0) || (k > 0 && gap >= 90)) {
-      if (k === 0) body += `<tr class="gap"><td colspan="14">${gap} days since last start</td></tr>`;
-      else body += `<tr class="gap"><td colspan="14">Away ${gap} days</td></tr>`;
+      if (k === 0) body += `<tr class="gap"><td colspan="15">${gap} days since last start</td></tr>`;
+      else body += `<tr class="gap"><td colspan="15">Away ${gap} days</td></tr>`;
     }
     prev = r[0];
     const hl = (on, html) => on ? `<mark>${html}</mark>` : html;
@@ -1302,6 +1303,7 @@ function ppBlock(id, pos) {
       <td title="${esc(riderFull(V[s[3]]))}">${esc(riderShort(V[s[3]]))}${amat}</td>
       <td class="n">${s[2] || ''}</td>
       <td class="me">${lasixMark(s[9])}${eqMark(s[10])}</td>
+      <td class="tr" title="${esc(V[s[5]] || '')}">${esc(riderShort(V[s[5]] || ''))}</td>
       <td class="n">${s[7] ? kpurse(s[7]) : ''}</td>
       <td class="ofin">${topFinishers(s[0], hi)}</td></tr>`;
   });
@@ -1324,8 +1326,8 @@ function ppBlock(id, pos) {
       <div class="recwrap">${recbox}</div>
     </div>
     ${!h[10].length ? `<div class="flathead"><b>Jump form</b><span>No starts in the steeplechase archive${eq(h) ? '' : ' · no North American record either (likely raced only abroad)'}</span></div>` : `<div class="lines"><table class="pplines">
-      <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th>Time</th><th class="n" title="Winning time against course par, seconds">Par±</th><th>Class</th><th class="n" title="Starters">Fld</th><th>Fin</th><th class="n" title="Winning margin: the winner's margin over the second horse, in lengths">Win Mgn</th><th>Jockey</th><th class="n">Wt</th><th title="Medication and equipment changes: L Lasix, black L first-time Lasix, LX off Lasix; b blinkers, cp cheek pieces, h hood (+ on, − off). From NSA charts and overnights, 2024 on.">M/E</th><th class="n" title="Earnings">Earn</th><th>Order of finish</th></tr></thead>
-      <tbody>${body || `<tr><td colspan="14" class="muted">No ${KIND[state.lineFilter] ? KIND[state.lineFilter].toLowerCase() + ' ' : ''}starts on record.</td></tr>`}</tbody></table></div>`}
+      <thead><tr><th>Date / Trk</th><th>Going</th><th>Dist</th><th>Time</th><th class="n" title="Winning time against course par, seconds">Par±</th><th>Class</th><th class="n" title="Starters">Fld</th><th>Fin</th><th class="n" title="Winning margin: the winner's margin over the second horse, in lengths">Win Mgn</th><th>Jockey</th><th class="n">Wt</th><th title="Medication and equipment changes: L Lasix, black L first-time Lasix, LX off Lasix; b blinkers, cp cheek pieces, h hood (+ on, − off). From NSA charts and overnights, 2024 on.">M/E</th><th>Trainer</th><th class="n" title="Earnings">Earn</th><th>Order of finish</th></tr></thead>
+      <tbody>${body || `<tr><td colspan="15" class="muted">No ${KIND[state.lineFilter] ? KIND[state.lineFilter].toLowerCase() + ' ' : ''}starts on record.</td></tr>`}</tbody></table></div>`}
     ${flatSection(h, hi)}
     ${trackSection(h)}
     ${pointSection(h, 'irish', 'Irish point-to-point form', 'p2p.ie')}
