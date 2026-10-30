@@ -1271,7 +1271,7 @@ function ppBlock(id, pos) {
   const recbox = `<table class="recbox" aria-label="Record">${rows.map(([l, o, on, sep]) =>
     `<tr class="${on ? 'on' : ''}${sep ? ' sep' : ''}"><td>${esc(l)}</td><td>${o.st}</td><td>${o.w}</td><td>${o.p}</td><td>${o.s}</td><td>${money(o.e) || '$0'}</td></tr>`).join('')}</table>`;
   const ent = entryOf(id);
-  const owner = last ? V[last[6]] : (ent && ent.owner) || '', trainer = last ? V[last[5]] : (ent && ent.trainer) || '';
+  const owner = (ent && ent.owner) || (last ? V[last[6]] : ''), trainer = (ent && ent.trainer) || (last ? V[last[5]] : '');
   const color = h[3] ? h[3] + '.' : '', sex = SEX[h[4]] ? SEX[h[4]] + '.' : '';
   const ident = [color, sex, age && age > 0 && age < 30 ? age : '', h[5] ? `(${h[5]})` : ''].filter(Boolean).join(' ');
   const sameName = H.filter(x => x[1] === h[1]).length > 1;
@@ -1321,8 +1321,8 @@ function ppBlock(id, pos) {
           <div>${esc(ident)}${h[6] ? ` · <span class="k">Sire:</span> ${esc(h[6])}` : ''}</div>
           ${h[7] ? `<div><span class="k">Dam:</span> ${esc(h[7])}${h[8] ? ` (${esc(h[8])})` : ''}</div>` : ''}
           ${h[9] ? `<div><span class="k">Br:</span> ${esc(h[9])}</div>` : ''}
-          ${owner ? `<div><span class="k">Own:</span> ${esc(owner)}</div>` : ''}
-          ${trainer ? `<div><span class="k">Tr:</span> ${esc(trainer)}</div>` : ''}
+          ${owner ? `<div><span class="k">Own:</span> ${personLink(owner, 'o', esc(owner))}</div>` : ''}
+          ${trainer ? `<div><span class="k">Tr:</span> ${personLink(trainer, 't', esc(trainer))}</div>` : ''}
         </div></div>
       ${medBox(id, h)}
       <div class="recwrap">${recbox}</div>
@@ -1428,12 +1428,12 @@ function histResult(ri) {
 // a name on a card -> our person record (rider or trainer), matched on the full name with case, punctuation
 // and spacing ignored; only when exactly one person with that role has the name (2026-10-30)
 let personByName = null;
-const nameKey = n => (n || '').toLowerCase().replace(/[^a-z]/g, '');
+const nameKey = n => (n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 function personLink(name, role, html) {
   if (!name) return html;
   if (!personByName) {
-    buildPeople(); personByName = { r: new Map(), t: new Map() };
-    for (const [v, p] of PEOPLE) for (const k of ['r', 't']) if (p[k].length) {
+    buildPeople(); personByName = { r: new Map(), t: new Map(), o: new Map() };
+    for (const [v, p] of PEOPLE) for (const k of ['r', 't', 'o']) if (p[k].length) {
       const key = nameKey(k === 'r' ? riderFull(p.n) : p.n), m = personByName[k];
       m.set(key, m.has(key) && m.get(key) !== v ? -1 : v);
     }
@@ -1447,7 +1447,6 @@ function todayLine(id) {
   if (e.jockey) bits.push(`<b>${personLink(e.jockey, 'r', esc(riderFull(e.jockey)))}</b>${e.amateur ? ' (A)' : ''}`);
   if (e.wt) bits.push(`<b>${e.wt}</b> lb${e.allow ? ' (' + '*'.repeat(e.allow) + ' allowance)' : ''}`);
   if (e.claim) bits.push('Clm ' + money(e.claim));
-  if (e.trainer) bits.push('Tr ' + personLink(e.trainer, 't', esc(e.trainer)));
   if (e.ae) bits.push('also eligible');
   return `<div class="today"><span class="k">${label}:</span> ${bits.join(' · ')}</div>`;
 }
