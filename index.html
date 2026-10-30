@@ -148,7 +148,7 @@ table.restab td { vertical-align: top; }
 .replaynote{font-size:12px;margin:-6px 0 12px;opacity:.8}.replaynote .hlink{font-size:12px}
 .replaylink{display:inline-flex;align-items:center;gap:10px;margin:0 0 12px;padding:8px 14px 8px 10px;border:1px solid var(--line,#ccc);border-radius:6px;text-decoration:none;color:inherit}.replaylink:hover{border-color:currentColor}.replaylink .play{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#1ab7ea;color:#fff;font-size:13px}.replaylink small{display:block;font-size:11px;opacity:.7}
 .replay{position:relative;width:100%;max-width:880px;aspect-ratio:16/9;margin:0 0 12px;background:#000;border-radius:4px;overflow:hidden}.replay iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-#view .hlink { all: unset; cursor: pointer; font-weight: 700; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+#view .hlink, #drawer .hlink { all: unset; cursor: pointer; font-weight: 700; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 #view .hlink:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 table.restab td.l .s { display: block; font-size: 11px; color: var(--muted); }
 table.restab td.cmt { white-space: normal; min-width: 220px; font-size: 12px; color: var(--muted); }
@@ -262,6 +262,8 @@ a.mb-src { text-decoration: underline dotted; }
 .lx { font-weight: 800; }
 td.me { white-space: nowrap; font-size: 11.5px; }
 td.tr { white-space: nowrap; }
+#view .hlink.pl, #drawer .hlink.pl { font-weight: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline dotted; text-decoration-color: var(--rule-strong); text-underline-offset: 2px; }
+#view .hlink.pl:hover, #drawer .hlink.pl:hover { color: var(--accent); text-decoration-color: currentColor; }
 td.me .lx1 { font-size: 10px; }
 .eqm { margin-left: 3px; font-weight: 700; }
 
@@ -1175,7 +1177,7 @@ function topFinishers(ri, selfIdx) {
   const ents = raceEnt[ri];
   return ofinList(ents.map(e => {
     const h = H[e[0]]; const pos = state.horses.indexOf(h[0]);
-    let nm = esc(h[1]);
+    let nm = e[0] === selfIdx ? esc(h[1]) : `<button type="button" class="hlink pl" data-look-horse="${h[0]}">${esc(h[1])}</button>`;
     if (e[0] === selfIdx) nm = `<span class="me">${nm}</span>`; else if (pos >= 0) nm = `<mark>${nm}</mark>${pgm(pos, true)}`;
     const code = /^\d+$/.test(e[1]) && +e[1] > 0 ? '' : `<span class="muted">(${esc(e[1] || '—')})</span>`;
     return { html: `${nm}${e[2] ? e[2] : ''}${code}`, keep: e[0] === selfIdx || pos >= 0 };
@@ -1300,10 +1302,10 @@ function ppBlock(id, pos) {
       <td class="n">${raceEnt[s[0]].length}</td>
       <td>${finCell(s, r)}</td>
       <td class="n">${r[14] ? `<span title="${esc(marginWord(r[14]))}">${esc(r[14])}</span>` : ''}</td>
-      <td title="${esc(riderFull(V[s[3]]))}">${esc(riderShort(V[s[3]]))}${amat}</td>
+      <td title="${esc(riderFull(V[s[3]]))}">${s[3] ? `<button type="button" class="hlink pl" data-person="${s[3]}" data-role="r">${esc(riderShort(V[s[3]]))}</button>` : ''}${amat}</td>
       <td class="n">${s[2] || ''}</td>
       <td class="me">${lasixMark(s[9])}${eqMark(s[10])}</td>
-      <td class="tr" title="${esc(V[s[5]] || '')}">${esc(riderShort(V[s[5]] || ''))}</td>
+      <td class="tr" title="${esc(V[s[5]] || '')}">${s[5] ? `<button type="button" class="hlink pl" data-person="${s[5]}" data-role="t">${esc(riderShort(V[s[5]]))}</button>` : ''}</td>
       <td class="n">${s[7] ? kpurse(s[7]) : ''}</td>
       <td class="ofin">${topFinishers(s[0], hi)}</td></tr>`;
   });
@@ -1907,10 +1909,10 @@ window.addEventListener('popstate', e => {
   const s = e.state && e.state.snap; if (!s) return;
   navRestoring = true;
   try {
-    Object.assign(state, { horses: s.horses, entry: s.entry, look: s.look, lookAll: s.lookAll, tab: s.tab, asOf: s.asOf, pick: s.pick });
+    Object.assign(state, { horses: (s.horses || []).slice(), entry: s.entry, look: s.look, lookAll: s.lookAll, tab: s.tab, asOf: s.asOf, pick: s.pick });
     if ($('#season').value !== s.season) { $('#season').value = s.season; fillRaceCards(); }
     rcSel = s.rcSel || ''; $('#rcText').textContent = s.rcText || $('#rcText').textContent; renderRaceList();
-    drawer = s.drawer || [];
+    drawer = (s.drawer || []).slice();   // a copy: history.state's own array must not change under it
     store.set('spp.current', state); render(); renderDrawer();
     $('#backCard').hidden = !(state.look && (entryCtx() || state.horses.length));
   } finally { navRestoring = false; }
