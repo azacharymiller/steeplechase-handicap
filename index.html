@@ -570,7 +570,7 @@ function histCard(ri) {
   const ents = raceEnt[ri].map(e => {
     const h = H[e[0]], st = h[10].find(x => x[0] === ri);
     return { name: h[1], hid: h[0], fin: e[1], jockey: st ? V[st[3]] : '', amateur: !!(st && st[4]), wt: st ? st[2] : null,
-             trainer: st ? V[st[5]] : '', owner: st ? V[st[6]] : '', med: st && st[9] && st[9] !== '-' ? st[9] : '', equip: st && st[10] || '' };
+             trainer: st ? V[st[5]] : '', owner: st ? V[st[6]] : '', own: st && st[6] ? [[V[st[6]], st[6]]] : null, trV: st ? st[5] : -1, med: st && st[9] && st[9] !== '-' ? st[9] : '', equip: st && st[10] || '' };
   });   // program numbers aren't in the charts: a resulted race is numbered in finishing order (raceEnt is sorted by finish)
   ents.forEach((e, k) => { e.pp = String(k + 1); });
   const x = { c: { id: 'hist', meet: C[r[1]][1], date: r[0], status: 'result', source: 'Archive', course: r[1] },
@@ -1321,8 +1321,8 @@ function ppBlock(id, pos) {
           <div>${esc(ident)}${h[6] ? ` · <span class="k">Sire:</span> ${esc(h[6])}` : ''}</div>
           ${h[7] ? `<div><span class="k">Dam:</span> ${esc(h[7])}${h[8] ? ` (${esc(h[8])})` : ''}</div>` : ''}
           ${h[9] ? `<div><span class="k">Br:</span> ${esc(h[9])}</div>` : ''}
-          ${owner ? `<div><span class="k">Own:</span> ${personLink(owner, 'o', esc(owner))}</div>` : ''}
-          ${trainer ? `<div><span class="k">Tr:</span> ${personLink(trainer, 't', esc(trainer))}</div>` : ''}
+          ${owner ? `<div><span class="k">Own:</span> ${ent && ent.own ? ownHtml(ent.own) : personLink(owner, 'o', esc(owner))}</div>` : ''}
+          ${trainer ? `<div><span class="k">Tr:</span> ${ent && ent.trV > 0 ? vLink(ent.trV, 't', esc(V[ent.trV])) : personLink(trainer, 't', esc(trainer))}</div>` : ''}
         </div></div>
       ${medBox(id, h)}
       <div class="recwrap">${recbox}</div>
@@ -1441,6 +1441,9 @@ function personLink(name, role, html) {
   const v = personByName[role].get(nameKey(role === 'r' ? riderFull(name) : name));
   return v > 0 ? `<button type="button" class="hlink pl" data-person="${v}" data-role="${role}">${html}</button>` : html;
 }
+// card owners/trainers come resolved to archive records by the build (entry.own / entry.trV, 2026-11-04)
+function vLink(v, role, html) { return v > 0 ? `<button type="button" class="hlink pl" data-person="${v}" data-role="${role}">${html}</button>` : html; }
+function ownHtml(parts) { return parts.map(p => typeof p === 'string' ? esc(p) : (p[1] > 0 ? vLink(p[1], 'o', esc(p[0])) : personLink(p[0], 'o', esc(p[0])))).join(''); }
 function todayLine(id) {
   const e = entryOf(id); if (!e) return '';
   const bits = [], x = entryCtx(), label = x && x.r.hist != null ? 'Race day' : 'Today';
