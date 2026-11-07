@@ -1448,7 +1448,7 @@ function todayLine(id) {
   const e = entryOf(id); if (!e) return '';
   const bits = [], x = entryCtx(), label = x && x.r.hist != null ? 'Race day' : 'Today';
   if (e.jockey) bits.push(`<b>${personLink(e.jockey, 'r', esc(riderFull(e.jockey)))}</b>${e.amateur ? ' (A)' : ''}`);
-  if (e.wt) bits.push(`<b>${e.wt}</b> lb${e.allow ? ' (' + (e.allow <= 2 ? 5 * e.allow + ' lb apprentice allowance' : '*'.repeat(e.allow) + ' allowance') + ')' : ''}`);
+  if (e.wt) bits.push(`<b>${'*'.repeat(e.allow || 0)}${e.wt}</b> lb`);
   if (e.claim) bits.push('Clm ' + money(e.claim));
   if (e.ae) bits.push('also eligible');
   return `<div class="today"><span class="k">${label}:</span> ${bits.join(' · ')}</div>`;
